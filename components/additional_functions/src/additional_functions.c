@@ -63,10 +63,10 @@ void new_periodic_task(periodic_func_t func,
 
 
         if(periodic_timer == NULL){
-            ESP_ERROR_CHECK(init_timer());
+            init_timer();
         }
         if(!esp_timer_is_active(periodic_timer)){
-            ESP_ERROR_CHECK(esp_timer_start_periodic(periodic_timer, 1000));
+            esp_timer_start_periodic(periodic_timer, 1000);
         }
     }
     taskEXIT_CRITICAL(&periodic_timers_s);
@@ -129,13 +129,3 @@ int set_pin(int pin, uint8_t state)
     return gpio_set_level(pin, state);
 }
 
-void sensor_on()
-{
-    set_pin(SENSOR_EN_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(300));
-}
-
-void sensor_off()
-{
-    set_pin(SENSOR_EN_PIN, 0);
-}

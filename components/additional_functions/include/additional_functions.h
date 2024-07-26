@@ -2,6 +2,7 @@
 #define ADD_FUNCTIONS_H
 
 #include "stdint.h"
+#include "esp_log.h"
 #include "esp_err.h"
 #include "stddef.h"
 #include "freertos/FreeRTOS.h"
@@ -22,26 +23,32 @@ void tasks_run();
 void esp_sleep(const uint64_t sleep_time_ms);
 int set_pin(int pin, uint8_t state);
 
-void sensor_on();
-void sensor_off();
 
-
-#define CHECK_AND_RET_ERR(err)  \
-    do{                         \
-        const int e = err;      \
-        if(e != ESP_OK)return e;\
+#define CHECK_AND_RET_ERR(result_)                  \
+    do{                                             \
+        const int e = result_;                      \
+        if(e != ESP_OK){                            \
+            ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e));   \
+            return e;                               \
+        }                                           \
     }while(0)
 
-#define CHECK_AND_GO(err, label)    \
-    do{                             \
-        const int e = err;          \
-        if(e != ESP_OK)goto label;  \
+#define CHECK_AND_GO(result_, label)                \
+    do{                                             \
+        const int e = result_;                      \
+        if(e != ESP_OK){                            \
+            ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e));  \
+            goto label;                             \  
+        }                                           \                              
     }while(0)
 
 #define CHECK_AND_RET(err)      \
     do{                         \
         const int e = err;      \
-        if(e != ESP_OK)return;  \
+        if(e != ESP_OK){        \
+            ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e));  \
+            return;             \
+        }                       \
     }while(0)
 
 #define delay(ms) (vTaskDelay(ms / portTICK_PERIOD_MS))

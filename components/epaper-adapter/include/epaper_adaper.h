@@ -37,6 +37,7 @@ public:
     void init();
     void printf(int ver, int hor, int font, const char * format, ...);
     void sleep();
+    void update_rotate();
 };
 
 

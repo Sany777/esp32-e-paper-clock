@@ -20,12 +20,8 @@ int get_joystick_btn()
 {
     for(int i=0; i<BUT_NUM; ++i){
         if(gpio_get_level(joystic_pin[i])){
-            vTaskDelay(pdMS_TO_TICKS(100));
-            if(gpio_get_level(joystic_pin[i])){
-                return i;
-            }
+            return i;
         }
-        
     }
     return -1;
 }
