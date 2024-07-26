@@ -15,6 +15,7 @@
 #include "esp_sntp.h"
 #include "sdkconfig.h"
 #include "esp_mac.h"
+#include "additional_functions.h"
 
 
 EventGroupHandle_t service_event_group;
@@ -85,12 +86,12 @@ int init_wifi(void)
         esp_err_t ret = nvs_flash_init();
 
         if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-            CHECK_ERR_AND_RET(nvs_flash_erase());
-            CHECK_ERR_AND_RET(nvs_flash_init());
+            CHECK_AND_RET_ERR(nvs_flash_erase());
+            CHECK_AND_RET_ERR(nvs_flash_init());
         }
-        CHECK_ERR_AND_RET(esp_netif_init());
-        CHECK_ERR_AND_RET(esp_event_loop_create_default());
-        CHECK_ERR_AND_RET(esp_wifi_init(&cfg));
+        CHECK_AND_RET_ERR(esp_netif_init());
+        CHECK_AND_RET_ERR(esp_event_loop_create_default());
+        CHECK_AND_RET_ERR(esp_wifi_init(&cfg));
     // }
     return ESP_OK;
 }
@@ -127,7 +128,7 @@ void set_wifi_ap_config(char *ssid, char *pwd)
 int connect_sta()
 {
     if(service_event_group == NULL){
-        CHECK_ERR_AND_RET(init_wifi());
+        CHECK_AND_RET_ERR(init_wifi());
     }
     if(mode == WIFI_MODE_STA){
         esp_wifi_stop();
@@ -135,10 +136,10 @@ int connect_sta()
         if(mode != WIFI_MODE_NULL){
             wifi_stop(); 
         }
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_START, &sta_handler, NULL));
-        CHECK_ERR_AND_RET(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sta_handler, NULL));
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &sta_handler, NULL));
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_STOP, &sta_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_START, &sta_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sta_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &sta_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_STOP, &sta_handler, NULL));
     }
     if(netif == NULL){
        netif = esp_netif_create_default_wifi_sta();
@@ -146,19 +147,19 @@ int connect_sta()
     }
 
     mode = WIFI_MODE_STA;
-    CHECK_ERR_AND_RET(esp_wifi_set_mode(WIFI_MODE_STA));
+    CHECK_AND_RET_ERR(esp_wifi_set_mode(WIFI_MODE_STA));
 #if CONFIG_ESPNOW_ENABLE_LONG_RANGE
-        CHECK_ERR_AND_RET(esp_wifi_set_protocol(ESP_IF_WIFI_STA,
+        CHECK_AND_RET_ERR(esp_wifi_set_protocol(ESP_IF_WIFI_STA,
                                                 WIFI_PROTOCOL_11B
                                                 |WIFI_PROTOCOL_11G
                                                 |WIFI_PROTOCOL_11N
                                                 |WIFI_PROTOCOL_LR));
 #endif
-    if(strnlen((char)wifi_sta_config.sta.ssid, sizeof(wifi_sta_config.sta.ssid)) == 0){
+    if(strnlen((char*)wifi_sta_config.sta.ssid, sizeof(wifi_sta_config.sta.ssid)) == 0){
         set_wifi_sta_config(CONFIG_WIFI_STA_DEBUG_SSID, CONFIG_WIFI_STA_DEBUG_PASSWORD);
     }
-    CHECK_ERR_AND_RET(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config));
-    CHECK_ERR_AND_RET(esp_wifi_start());
+    CHECK_AND_RET_ERR(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config));
+    CHECK_AND_RET_ERR(esp_wifi_start());
     return wait_bits(BIT_STA_CON)&BIT_STA_CON ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 
@@ -166,7 +167,7 @@ int connect_sta()
 int connect_ap()
 {
     if(service_event_group == NULL){
-        CHECK_ERR_AND_RET(init_wifi());
+        CHECK_AND_RET_ERR(init_wifi());
     }
     if(mode != WIFI_MODE_AP){
         if(mode != WIFI_MODE_NULL){
@@ -182,13 +183,13 @@ int connect_ap()
         if(strnlen((char *)wifi_ap_config.ap.ssid, sizeof(wifi_ap_config.ap.ssid)) == 0){
             set_wifi_ap_config(CONFIG_WIFI_AP_SSID, CONFIG_WIFI_AP_PASSWORD);
         }
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STACONNECTED, &ap_handler, NULL));
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STADISCONNECTED, &ap_handler, NULL));       
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_START, &ap_handler, NULL));
-        CHECK_ERR_AND_RET(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STOP, &ap_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STACONNECTED, &ap_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STADISCONNECTED, &ap_handler, NULL));       
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_START, &ap_handler, NULL));
+        CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STOP, &ap_handler, NULL));
         mode = WIFI_MODE_AP;
-        CHECK_ERR_AND_RET(esp_wifi_set_mode(WIFI_MODE_AP));
-        CHECK_ERR_AND_RET(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config));
+        CHECK_AND_RET_ERR(esp_wifi_set_mode(WIFI_MODE_AP));
+        CHECK_AND_RET_ERR(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config));
     }
     return esp_wifi_start();
 }

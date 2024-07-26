@@ -1,4 +1,4 @@
 idf_component_register(SRC_DIRS "src"
                         INCLUDE_DIRS "include"
-                        PRIV_REQUIRES driver esp_wifi nvs_flash additional_functions
+                        PRIV_REQUIRES driver additional_functions
                     ) 

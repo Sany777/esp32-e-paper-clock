@@ -3,13 +3,10 @@
 
 #include "stdbool.h"
 
-#define CHECK_ERR_AND_RET(_e)   \
-    do{                         \
-        const int e = _e;       \
-        if(e != 0){             \
-            return e;           \
-        }                       \
-    }while(0)
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 
 enum Bits{
     BIT_STA_CON         = (1<<0),
@@ -32,6 +29,9 @@ void stop_sntp();
 
 int init_wifi(void) ;
 
+#ifdef __cplusplus
+}
+#endif
 
 
 

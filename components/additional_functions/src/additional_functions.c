@@ -1,8 +1,10 @@
-#include "periodic_task.h"
+#include "additional_functions.h"
 
 #include "esp_timer.h"
 #include "esp_task.h"
 #include "portmacro.h"
+#include "esp_sleep.h"
+#include "driver/gpio.h"
 
 #define MAX_TASKS_NUM 10
 
@@ -114,3 +116,26 @@ void stop_timer(void)
     esp_timer_stop(periodic_timer);
 }
 
+
+void esp_sleep(const uint64_t sleep_time_ms)
+{
+    esp_sleep_enable_timer_wakeup(sleep_time_ms * 1000); 
+    esp_deep_sleep_start();
+}
+
+int set_pin(int pin, uint8_t state)
+{
+    gpio_set_direction(pin, GPIO_MODE_INPUT_OUTPUT);
+    return gpio_set_level(pin, state);
+}
+
+void sensor_on()
+{
+    set_pin(SENSOR_EN_PIN, 1);
+    vTaskDelay(pdMS_TO_TICKS(300));
+}
+
+void sensor_off()
+{
+    set_pin(SENSOR_EN_PIN, 0);
+}
