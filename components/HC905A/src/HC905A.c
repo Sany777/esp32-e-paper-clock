@@ -6,10 +6,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/ledc.h"
+#include <math.h>
 
 #include "additional_functions.h"
+#include "periodic_taks.h"
 
-#include <math.h>
 
 #define LEDC_TIMER              LEDC_TIMER_0
 #define LEDC_MODE               LEDC_HIGH_SPEED_MODE
@@ -50,13 +51,13 @@ void init_pwm(void)
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
     ESP_ERROR_CHECK(ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, LEDC_DUTY));
     ESP_ERROR_CHECK(ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel));
+    buzzer_init = true;
 }
 
 void buzer_start()
 {
     if(!buzzer_init){
         init_pwm();
-        buzzer_init = true;
     } else { 
         ledc_timer_resume(ledc_timer.speed_mode, ledc_timer.timer_num);
     }
@@ -115,6 +116,6 @@ void generate_waveform(waveform_t waveform, int sample_rate) {
         }
 
 
-        vTaskDelay(pdMS_TO_TICKS(1000 / sample_rate));
+        // vTaskDelay(portTICK_PERIOD_MS(sample_rate));
     }
 }

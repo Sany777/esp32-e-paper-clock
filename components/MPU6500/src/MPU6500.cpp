@@ -18,8 +18,6 @@ static const char *TAG = "MPU6500";
 
 int MPU6500::init() 
 {
-    off();
-    vTaskDelay(pdMS_TO_TICKS(500));
     on();
     // Wake up the MPU6500 since it starts in sleep mode
     CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_1, MPU6500_PWR_MGMT_1_WAKEUP));
@@ -30,7 +28,7 @@ int MPU6500::init()
     // Set accelerometer configuration (±2g)
     CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_ACCEL_CONFIG, 0x00));
     // Enable interrupt
-    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_INT_ENABLE, 0x01));
+    // CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_INT_ENABLE, 0x01));
     is_init = true;
     return ESP_OK;
 }

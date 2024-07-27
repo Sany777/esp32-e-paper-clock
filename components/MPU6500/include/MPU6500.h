@@ -29,6 +29,7 @@ public:
     int get_x(){return x_angle;}
     int get_y(){return y_angle;}
     int get_temp(){return temperature;}
+    int get_pos(int x, int y);
     int get_pos(){return pos;}
     ~MPU6500(){off();}
     const char* pos_to_str(int p);
@@ -45,7 +46,6 @@ private:
     int y_angle; 
     int pos;
     bool is_init;
-    int get_pos(int x, int y);
 
     #define MPU6500_ADDR             0x68
     #define MPU6500_PWR_MGMT_1       0x6B
