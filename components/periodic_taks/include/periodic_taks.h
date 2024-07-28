@@ -7,14 +7,25 @@ extern "C" {
 #endif
 
 
-typedef void(*periodic_func_t)(void);
+typedef void(*periodic_func_t)(void *context);
+typedef void(*periodic_func_in_isr_t)();
 
-void stop_periodic_task(periodic_func_t func);
-void new_periodic_task(periodic_func_t func, int delay_ms, int count);
-int init_timer(void);
-void stop_timer(void);
-void tasks_run();
 
+
+
+void periodic_task_remove(void* func);
+int periodic_task_create(void(*func)(void*),
+                            unsigned delay_ms, 
+                            unsigned count,
+                            void *context);
+
+int periodic_task_in_isr_create(void(*func)(),
+                            unsigned delay_ms, 
+                            unsigned count);
+
+void task_runner_start(void);
+void task_runner_stop(void);
+void task_runner_deinit(void);
 
 
 

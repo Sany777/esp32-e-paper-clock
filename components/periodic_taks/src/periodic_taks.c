@@ -3,117 +3,216 @@
 #include "esp_timer.h"
 #include "esp_task.h"
 #include "portmacro.h"
-
-
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #define MAX_TASKS_NUM 10
 
+static TaskHandle_t task_runner_handle;
 
 typedef struct {
-    periodic_func_t func;
+    void *func;
     int delay_init;
     int count;
     int delay;
-}periodic_event_t;
-
+    void* context;
+    bool task_in_interrupt;
+}periodic_task_data_t;
 
 esp_timer_handle_t periodic_timer = NULL;
-periodic_event_t periodic_tasks[MAX_TASKS_NUM];
+periodic_task_data_t periodic_tasks[MAX_TASKS_NUM];
 portMUX_TYPE periodic_timers_s = portMUX_INITIALIZER_UNLOCKED;
 
-static void periodic_timer_cb(void* arg);
+
+static int new_periodic_task(void *func,
+                            unsigned delay_ms, 
+                            unsigned count,
+                            void *context,
+                            bool run_in_intrp);
+
+static void task_runner(void *pvParameters);
+static IRAM_ATTR void periodic_timer_cb(void* arg);
+static int init_timer(void);
 
 
-void stop_periodic_task(periodic_func_t func)
+periodic_task_data_t* find_task(void* func)
 {
-    for(int i=0; i<MAX_TASKS_NUM; i++){
-        if(periodic_tasks[i].func == func){
-            periodic_tasks[i].count = 0;
-            return;
-        }
-    }
-}
-
-void new_periodic_task(periodic_func_t func,
-                            int delay_ms, 
-                            int count)
-{
-    taskENTER_CRITICAL(&periodic_timers_s);
-
-    periodic_event_t *item = NULL, *empty = NULL;
-    for(int i=0; i<MAX_TASKS_NUM; i++){
-        if(periodic_tasks[i].func == func){
-            item = &periodic_tasks[i];
-            break;
-        } else if(empty == NULL && periodic_tasks[i].count == 0){
-            empty = &periodic_tasks[i];
-        }
-    }
-
-    if(item || empty){
-        if(!item){
-            item = empty;
-            item->func = func;
-        }
-
-        item->delay = delay_ms;
-        item->delay_init = delay_ms;
-        item->count = count;
-
-
-        if(periodic_timer == NULL){
-            init_timer();
-        }
-        if(!esp_timer_is_active(periodic_timer)){
-            esp_timer_start_periodic(periodic_timer, 1000);
-        }
-    }
-    taskEXIT_CRITICAL(&periodic_timers_s);
-}
-
-void tasks_run()
-{
-    for(int i=0; i<MAX_TASKS_NUM; ++i){
-        if(periodic_tasks[i].delay == 0 && periodic_tasks[i].count != 0){
-            if(periodic_tasks[i].count > 0)--periodic_tasks[i].count;
-            if(periodic_tasks[i].count != 0){
-                periodic_tasks[i].delay = periodic_tasks[i].delay_init;
+    if(!func)return NULL;
+    periodic_task_data_t *end = periodic_tasks+MAX_TASKS_NUM, *ptr = periodic_tasks;
+    while(ptr < end){
+        if(ptr->task_in_interrupt){
+            if(ptr->func == func){
+                return ptr;
             }
-            periodic_tasks[i].func();
+        } else if(ptr->func == func){
+            return ptr;
+        } 
+        ++ptr;
+    }
+    return NULL;
+}
+
+void periodic_task_remove(void *func)
+{
+    periodic_task_data_t*to_delete = find_task(func);
+    if(to_delete){
+        to_delete->count = 0;
+    }
+}
+
+static int new_periodic_task(void *func,
+                            unsigned delay_ms, 
+                            unsigned count,
+                            void *context,
+                            bool run_in_intrp)
+{
+    int res = ESP_FAIL;
+    if(!run_in_intrp){
+        if(task_runner_handle == NULL){
+            xTaskCreate(task_runner, "Task runner", 4096, NULL, 8, &task_runner_handle);
+            if(task_runner_handle == NULL) return ESP_FAIL;
+        }
+    }
+    task_runner_stop();
+    periodic_task_data_t *end = periodic_tasks+MAX_TASKS_NUM, *ptr = periodic_tasks;
+    periodic_task_data_t *to_insert = find_task(func);
+    while(to_insert == NULL && ptr < end){
+        if(ptr->count == 0){
+            to_insert = ptr;
+            to_insert->func = func;
+        } else {
+            ++ptr;
+        }
+    }
+
+    if(to_insert){
+        to_insert->delay = delay_ms;
+        to_insert->delay_init = delay_ms;
+        to_insert->count = count;
+        to_insert->context = context;
+        res = ESP_OK;
+    }
+
+    task_runner_start();
+    return res;
+}
+
+int periodic_task_create(void(*func)(void*),
+                            unsigned delay_ms, 
+                            unsigned count,
+                            void *context)
+{
+    return new_periodic_task(func, delay_ms, count, context, false);
+}
+
+int periodic_task_in_isr_create(void(*func)(),
+                            unsigned delay_ms, 
+                            unsigned count)
+{
+    return new_periodic_task(func, delay_ms, count, NULL, true);
+}
+
+
+
+static void task_runner(void *pvParameters)
+{
+    uint32_t ulNotificationValue;
+    const periodic_task_data_t *end = periodic_tasks+MAX_TASKS_NUM;
+    periodic_task_data_t *ptr;
+    periodic_func_t func;
+    for(;;){
+        if (xTaskNotifyWait(0x00, 0x00, &ulNotificationValue, portMAX_DELAY) == pdTRUE){
+            ptr = periodic_tasks;
+            while(ptr < end){
+                if(! ptr->task_in_interrupt && ptr->delay == 0 && ptr->count != 0){
+                    if(ptr->count > 0) --ptr->count;
+                    if(ptr->count != 0){
+                        ptr->delay = ptr->delay_init;
+                    }
+                    func = (periodic_func_t)ptr->func;
+                    func(ptr->context);
+                } 
+                ++ptr;
+            }
         }
     }
 }
 
-static void periodic_timer_cb(void* arg)
+static IRAM_ATTR void periodic_timer_cb(void*)
 {
-    for(int i=0; i<MAX_TASKS_NUM; ++i){
-        if(periodic_tasks[i].count != 0 && periodic_tasks[i].delay != 0){
-            --periodic_tasks[i].delay;
-            if(periodic_tasks[i].delay == 0){
-                if(periodic_tasks[i].count > 0)--periodic_tasks[i].count;
-                if(periodic_tasks[i].count != 0){
-                    periodic_tasks[i].delay = periodic_tasks[i].delay_init;
+    BaseType_t xHigherPriorityTaskWoken;
+    bool need_start_runer = false;
+    const periodic_task_data_t *end = periodic_tasks+MAX_TASKS_NUM;
+    periodic_task_data_t *ptr = periodic_tasks;
+    periodic_func_in_isr_t func;
+    while(ptr < end){
+        if(ptr->delay > 0){
+            --ptr->delay;
+            if(ptr->delay == 0){
+                if(ptr->task_in_interrupt){
+                    if(ptr->count > 0) --ptr->count;
+                    if(ptr->count != 0){
+                        ptr->delay = ptr->delay_init;
+                    }
+                    func = (periodic_func_in_isr_t)ptr->func;
+                    func();
+                }else{
+                    need_start_runer = true;
                 }
-                periodic_tasks[i].func();
             }
         }
+        ++ptr;
+    }
+    if(need_start_runer){
+        vTaskNotifyGiveFromISR(task_runner_handle, &xHigherPriorityTaskWoken);
+        portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
 }
 
-int init_timer(void)
+static int init_timer(void)
 {
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &periodic_timer_cb,
         .arg = NULL,
-        .name = "tasks_timer"
+        .name = "tasks_timer",
+        .skip_unhandled_events = true
     };
     return esp_timer_create(&periodic_timer_args, &periodic_timer);
 }
 
-void stop_timer(void)
+void task_runner_start(void)
 {
-    esp_timer_stop(periodic_timer);
+    if(task_runner_handle){
+        vTaskResume(task_runner_handle);
+    }
+    if(periodic_timer == NULL){
+        init_timer();
+    }
+    if(periodic_timer){
+        esp_timer_stop(periodic_timer);
+    }
 }
 
+void task_runner_stop()
+{
+    if(task_runner_handle){
+        vTaskSuspend(task_runner_handle);
+    }
+    if(periodic_timer){
+        esp_timer_start_periodic(periodic_timer, 1000);
+    }
+}
 
+void task_runner_deinit()
+{
+    if(task_runner_handle){
+        vTaskDelete(task_runner_handle);
+        task_runner_handle = NULL;
+    }
+    if(periodic_timer){
+        esp_timer_stop(periodic_timer);
+        esp_timer_delete(periodic_timer);
+        periodic_timer = NULL;
+    }
+}
 

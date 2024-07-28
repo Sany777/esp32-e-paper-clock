@@ -15,7 +15,7 @@ void EPaperAdapter::init()
 {
     frame_ = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
     text_buf = new char[MAX_SYMB];
-    set_pin(EP_ON_PIN, 1);
+    clock_set_pin(EP_ON_PIN, 1);
     vTaskDelay(100);
     paint = new Paint(frame_, epd.width, epd.height);
     paint->Clear(UNCOLORED);

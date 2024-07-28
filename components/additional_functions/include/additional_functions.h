@@ -11,9 +11,6 @@
 extern "C" {
 #endif
 
-#define SENSOR_EN_PIN 26
-
-
 
 #define CHECK_AND_RET_ERR(result_) \
     do{ \
@@ -44,8 +41,8 @@ extern "C" {
 
 
 
-void esp_sleep(const unsigned sleep_time_ms);
-int set_pin(int pin, unsigned state);
+void clock_sleep(const unsigned sleep_time_ms);
+int clock_set_pin(int pin, unsigned state);
 
 
 

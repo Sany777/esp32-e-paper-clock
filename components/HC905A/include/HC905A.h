@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 void buzer_start();
-void start_signale(int delay, int count);
+void start_signale(unsigned  delay, unsigned  count);
 void buzer_stop();
 
 #ifdef __cplusplus

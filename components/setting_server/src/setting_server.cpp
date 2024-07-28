@@ -21,23 +21,19 @@
 static httpd_handle_t server;
 static char *server_buf;
 
-/*
+const char *MES_DATA_NOT_READ = "Data not read";
+const char *MES_DATA_TOO_LONG = "Data too long";
+const char *MES_NO_MEMORY = "No memory";
+const char *MES_BAD_DATA_FOMAT = "wrong data format";
+const char *MES_SUCCESSFUL = "Successful";
+
+#define SEND_REQ_ERR(req, str, label_) \
+    do{ httpd_resp_send_err((req), HTTPD_400_BAD_REQUEST, (str)); goto label_;}while(0)
+
+#define SEND_SERVER_ERR(req, str, label_) \
+    do{ httpd_resp_send_err((req), HTTPD_500_INTERNAL_SERVER_ERROR, (str)); goto label_;}while(0)
 
 
-
-// #define // SEND_RESP_REQ_ERR(req, str, goto_tag) 
-//     do { \
-//         httpd_resp_// SEND_err((req), HTTPD_400_BAD_REQUEST, (str)); 
-//         goto goto_tag; \
-//     } while(0)
-
-
-// #define // SEND_RESP_SERVER_ERR(req, goto_tag) \
-//     do { \
-//         httpd_resp_// SEND_err((req), HTTPD_500_INTERNAL_SERVER_ERROR, ""); \
-//         goto goto_tag; \
-//     } while(0)
-*/
 
 
 static esp_err_t index_redirect_handler(httpd_req_t *req)
@@ -88,6 +84,8 @@ static esp_err_t get_ico_handler(httpd_req_t *req)
 static esp_err_t handler_close(httpd_req_t *req)
 {
     httpd_resp_sendstr(req, "Goodbay!");
+    vTaskDelay(100);
+    stop_server();
     return ESP_OK;
 }
 
@@ -95,26 +93,29 @@ static esp_err_t handler_close(httpd_req_t *req)
 
 static esp_err_t handler_set_network(httpd_req_t *req)
 {
+    cJSON *root, *ssid_name_j, *pwd_wifi_j;
+    const char *ssid_name = NULL, *pwd_wifi = NULL;
     char *server_buf = NULL;
+    int received;
+    size_t pwd_len = 0, ssid_len = 0;
     const size_t total_len = req->content_len;
     clock_data_t *main_data = (clock_data_t *)req->user_ctx;
     if(total_len > BUF_SIZE){
-         // SEND_RESP_REQ_ERR(req, "Data length too long", err);
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, label_1);
     }
     server_buf = (char *)malloc(total_len+1);
     if(server_buf == NULL){
-        // SEND_RESP_SERVER_ERR(req, err);
+        SEND_SERVER_ERR(req, MES_NO_MEMORY, label_1);
     }
-    const int received = httpd_req_recv(req, server_buf, total_len);
+    received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        // SEND_RESP_SERVER_ERR(req, err_b);
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, label_2);
     }
     server_buf[received] = 0;
-    cJSON *root = cJSON_Parse(server_buf);
-    const cJSON *ssid_name_j = cJSON_GetObjectItemCaseSensitive(root, "SSID");
-    const cJSON *pwd_wifi_j = cJSON_GetObjectItemCaseSensitive(root, "PWD");
-    const char *ssid_name = NULL, *pwd_wifi = NULL;
-    size_t pwd_len = 0, ssid_len = 0;
+    root = cJSON_Parse(server_buf);
+    ssid_name_j = cJSON_GetObjectItemCaseSensitive(root, "SSID");
+    pwd_wifi_j = cJSON_GetObjectItemCaseSensitive(root, "PWD");
+    
     if(cJSON_IsString(ssid_name_j) && (ssid_name_j->valuestring != NULL)){
         ssid_name = ssid_name_j->valuestring;
         ssid_len = strnlen(ssid_name, MAX_STR_LEN);
@@ -127,7 +128,7 @@ static esp_err_t handler_set_network(httpd_req_t *req)
         || ssid_len > MAX_STR_LEN 
         || pwd_len > MAX_STR_LEN)
     {
-        // SEND_RESP_REQ_ERR(req, "Data length too long", err_j);
+        SEND_REQ_ERR(req, "Data length too long", label_3);
     }
     if(ssid_len){
         memcpy(main_data->ssid, ssid_name, ssid_len+1);
@@ -139,37 +140,41 @@ static esp_err_t handler_set_network(httpd_req_t *req)
     }
     free(server_buf);
     cJSON_Delete(root);
-    httpd_resp_sendstr(req, "Successful");
+    httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
-//err_j: 
+label_3: 
     cJSON_Delete(root);
-//err_b:
+label_2:
     free(server_buf);
-//err:
+label_1:
     return ESP_FAIL;
 }
 
 static esp_err_t handler_set_openweather_data(httpd_req_t *req)
 {
+    const char *key = NULL, *city_name = NULL;
+    cJSON *root, *city_j, *key_j;
+    const char *ssid_name = NULL, *pwd_wifi = NULL;
+    char *server_buf = NULL;
+    int received;
+    size_t key_len = 0, city_len = 0;
     const int total_len = req->content_len;
     clock_data_t *main_data = (clock_data_t *)req->user_ctx;
     if(total_len > BUF_SIZE){
-        // SEND_RESP_REQ_ERR(req, "Data length too long", err);
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, label_1);
     }
-    char *server_buf = (char *) malloc(total_len+1);
+    server_buf = (char *) malloc(total_len+1);
     if(server_buf == NULL){
-        // SEND_RESP_SERVER_ERR(req, err);
+        SEND_SERVER_ERR(req, MES_NO_MEMORY, label_1);
     }
-    const int received = httpd_req_recv(req, server_buf, total_len);
+    received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        // SEND_RESP_SERVER_ERR(req, _err);
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, label_2);
     }
     server_buf[received] = 0;
-    cJSON *root = cJSON_Parse(server_buf);
-    const cJSON *city_j = cJSON_GetObjectItemCaseSensitive(root, "City");
-    const cJSON *key_j = cJSON_GetObjectItemCaseSensitive(root, "Key");
-    const char *key = NULL, *city_name = NULL;
-    size_t key_len = 0, city_len = 0;
+    root = cJSON_Parse(server_buf);
+    city_j = cJSON_GetObjectItemCaseSensitive(root, "City");
+    key_j = cJSON_GetObjectItemCaseSensitive(root, "Key");
     if(cJSON_IsString(city_j) && (city_j->valuestring != NULL)){
         city_name = city_j->valuestring;
         city_len = strnlen(city_name, MAX_STR_LEN);
@@ -181,7 +186,7 @@ static esp_err_t handler_set_openweather_data(httpd_req_t *req)
     if((city_len == 0 && key_len == 0) 
         || city_len > MAX_STR_LEN)
     {
-        // SEND_RESP_REQ_ERR(req, "Data length too long",__err);
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, label_3);
     }
     if(key_len == API_LEN){
         memcpy(main_data->api_key, key, key_len+1);
@@ -193,13 +198,13 @@ static esp_err_t handler_set_openweather_data(httpd_req_t *req)
     }
     cJSON_Delete(root);
     free(server_buf);
-    httpd_resp_sendstr(req, "Successful");
+    httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
-//__err:
+label_3:
     cJSON_Delete(root);
-//_err:
+label_2:
     free(server_buf);
-//err:
+label_1:
     return ESP_FAIL;
 }
 
@@ -219,57 +224,61 @@ const char *get_chip(int model_id)
 
 static esp_err_t handler_get_info(httpd_req_t *req)
 {
-    httpd_resp_set_type(req, "application/json");
+    const char *sys_info;
     cJSON *root = cJSON_CreateObject();
     if(root == NULL){
-        // SEND_RESP_SERVER_ERR(req, err);
+        SEND_SERVER_ERR(req, MES_NO_MEMORY, err);
     }
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
     cJSON_AddStringToObject(root, "version", IDF_VER);
     cJSON_AddStringToObject(root, "chip", get_chip(chip_info.model));
     cJSON_AddNumberToObject(root, "revision", chip_info.revision);
-    const char *sys_info = cJSON_Print(root);
+    sys_info = cJSON_Print(root);
     if(sys_info){
+        httpd_resp_set_type(req, "application/json");
         httpd_resp_sendstr(req, sys_info);
         free((void *)sys_info);
     }
     cJSON_Delete(root);
-//err:
     return ESP_OK;
+err:
+    return ESP_FAIL;
 }
 
 static esp_err_t handler_set_time(httpd_req_t *req)
 {
+    long long time;
+    int received;
     const int total_len = req->content_len;
     char * const server_buf = (char *)req->user_ctx;
     if(total_len > BUF_SIZE){
-        // SEND_RESP_REQ_ERR(req, err);
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, err);
     }
-    const int received = httpd_req_recv(req, server_buf, total_len);
+    received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        // SEND_RESP_REQ_ERR(req, "Data not read", err);
+        SEND_REQ_ERR(req, MES_DATA_NOT_READ, err);
     }
     server_buf[total_len] = 0;
-    long long time = atoll(server_buf);
+    time = atoll(server_buf);
     if(!time){
-        // SEND_RESP_REQ_ERR(req, "Value wrong", err);
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, err);
     }
-
     set_time_ms(time);
     httpd_resp_sendstr(req, "success");
     return ESP_OK;
-//err:
+err:
     return ESP_FAIL;
 }
 
 
 static esp_err_t handler_give_data(httpd_req_t *req)
 {
+    const char *message = "success";
 //     clock_data_t * main_data = (clock_data_t *)req->user_ctx;
 //     char *notif_send = malloc(LEN_DATA_// SEND_NOTIF);
 //     if(notif_send == NULL){
-//         // SEND_RESP_REQ_ERR(req, "Not enough storage", err);
+//         // SEND_REQ_ERR(req, "Not enough storage", err);
 //     }
 //     EventBits_t uxBits = xEventGroupGetBits(dwin_event_group);
 //     httpd_resp_set_type(req, "application/json");
@@ -297,7 +306,7 @@ static esp_err_t handler_give_data(httpd_req_t *req)
 //     const char *data_info = cJSON_Print(root);
 //     if(!data_info){
 //         free(notif_send);
-//         // SEND_RESP_REQ_ERR(req, "Not enough storage", err);
+//         // SEND_REQ_ERR(req, "Not enough storage", err);
 //     }
 //     httpd_resp_sendstr(req, data_info);
 //     free((void *)data_info);
@@ -313,11 +322,11 @@ static esp_err_t handler_set_flag(httpd_req_t *req)
 //     const int total_len = req->content_len;
 //     char * const server_buf = (char *)req->user_ctx;
 //     if(total_len > BUF_SIZE){
-//         // SEND_RESP_REQ_ERR(req, "Content too long", err);
+//         // SEND_REQ_ERR(req, "Content too long", err);
 //     }
 //     const int received = httpd_req_recv(req, server_buf, total_len);
 //     if (received != total_len) {
-//         // SEND_RESP_REQ_ERR(req, "Data not read", err);
+//         // SEND_REQ_ERR(req, "Data not read", err);
 //     }
 //     server_buf[total_len] = 0;
 //     long flag = atoll(server_buf);
@@ -340,16 +349,16 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
 {
 //     const int total_len = req->content_len;
 //     if(total_len != LEN_DATA_// SEND_NOTIF-1){
-//         // SEND_RESP_REQ_ERR(req, "Wrong data format", err);
+//         // SEND_REQ_ERR(req, "Wrong data format", err);
 //     }
 //     char * const server_buf = malloc(LEN_DATA_// SEND_NOTIF);
 //     if(server_buf == NULL){
-//         // SEND_RESP_REQ_ERR(req, "Not enough storage", err);
+//         // SEND_REQ_ERR(req, "Not enough storage", err);
 //     }
 //     clock_data_t * main_data = (clock_data_t *)req->user_ctx;
 //     const int received = httpd_req_recv(req, server_buf, total_len);
 //     if (received != total_len) {
-//         // SEND_RESP_REQ_ERR(req, "Data not read", _err);
+//         // SEND_REQ_ERR(req, "Data not read", _err);
 //     }
 //     for(size_t  i=0,num_notif = 0,dayi=0,val=0; i<total_len; dayi++){
 //         if(dayi >= SIZE_WEEK){
@@ -359,12 +368,12 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
 //         }
 //         val = GET_NUMBER(server_buf[i])*10 + GET_NUMBER(server_buf[i+1]);
 //         if(!IS_HOUR(val)){
-//            // SEND_RESP_REQ_ERR(req, "Value hour is wrong", _err); 
+//            // SEND_REQ_ERR(req, "Value hour is wrong", _err); 
 //         }
 //         SET_NOTIF_HOUR(num_notif, dayi, val);
 //         val = GET_NUMBER(server_buf[i+2])*10 + GET_NUMBER(server_buf[i+3]);
 //         if(!IS_MIN_OR_SEC(val)){
-//            // SEND_RESP_REQ_ERR(req, "Value minute is wrong", _err); 
+//            // SEND_REQ_ERR(req, "Value minute is wrong", _err); 
 //         }
 //         SET_NOTIF_MIN(num_notif, dayi, val);
 //         i+=4;

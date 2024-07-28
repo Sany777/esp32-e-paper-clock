@@ -64,15 +64,16 @@ void buzer_start()
     if(_delay == 0){
         _delay = 20;
     }
-    new_periodic_task(buzer_stop, _delay/2, 1);
+    periodic_task_remove(buzer_stop);
+    periodic_task_in_isr_create(buzer_stop, _delay/2, 1);
 }
 
-void start_signale(int delay, int count)
+void start_signale(unsigned  delay, unsigned  count)
 {
     _delay = _delay;
     --count;
     if(count){
-        new_periodic_task(buzer_start, _delay, count);
+        periodic_task_in_isr_create(buzer_start, _delay, count);
     }
     buzer_start();
 }

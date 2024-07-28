@@ -56,7 +56,7 @@ int AHT21_read_data(float *temperature, float *humidity)
             ESP_LOGE(TAG, "Sensor is busy for too long");
             return ESP_FAIL;
         }
-    } while (status & AHT21_STATUS_BUSY);
+    } while (status&AHT21_STATUS_BUSY);
 
     CHECK_AND_RET_ERR(I2C_read_bytes(AHT21_ADDR, data, sizeof(data)));
     uint32_t raw_humidity = ((uint32_t)data[1] << 12) | ((uint32_t)data[2] << 4) | ((uint32_t)data[3] >> 4);
@@ -68,10 +68,10 @@ int AHT21_read_data(float *temperature, float *humidity)
 
 void AHT21_off()
 {
-    set_pin(AHT21_EN_PIN, 0);
+    clock_set_pin(AHT21_EN_PIN, 0);
 }
 void AHT21_on()
 {
-    set_pin(AHT21_EN_PIN, 1);
+    clock_set_pin(AHT21_EN_PIN, 1);
     vTaskDelay(pdMS_TO_TICKS(300));
 }
