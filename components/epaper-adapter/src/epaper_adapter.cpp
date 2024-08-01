@@ -13,11 +13,12 @@
 
 void EPaperAdapter::init()
 {
-    frame_ = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
+    screen = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
     text_buf = new char[MAX_SYMB];
     clock_set_pin(EP_ON_PIN, 1);
     vTaskDelay(100);
-    paint = new Paint(frame_, epd.width, epd.height);
+    paint = new Paint(screen, epd.width, epd.height);
+    paint->SetRotate(this->rotate);
     paint->Clear(UNCOLORED);
     epd.LDirInit();
     epd.Clear();
@@ -46,7 +47,7 @@ void EPaperAdapter::printf(int hor, int ver, int font, const char *format, ...)
         vsnprintf (text_buf, MAX_SYMB, format, args);
         va_end (args);
         paint->DrawStringAt(hor, ver, text_buf, get_font(font), COLORED);
-        epd.DisplayPart(frame_);
+        epd.DisplayPart(screen);
 }
 
 void EPaperAdapter::refresh()
@@ -59,7 +60,12 @@ void EPaperAdapter::sleep()
     epd.Sleep();
 }
 
-void EPaperAdapter::update_rotate()
+void EPaperAdapter::set_rotate(int cur_rotate)
 {
-    
+    if(this->rotate != cur_rotate){
+        this->rotate = cur_rotate;
+        this->paint->SetRotate(this->rotate);
+        this->epd.Clear();
+        this->epd.DisplayPart(screen);
+    }
 }

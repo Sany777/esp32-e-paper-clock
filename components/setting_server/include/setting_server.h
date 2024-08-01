@@ -1,11 +1,23 @@
 #ifndef SETTING_SERVER_H
 #define SETTING_SERVER_H
 
-#include "clock_system.h"
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "stdbool.h"
 
 int stop_server();
-int start_server(clock_data_t *main_data);
+int start_server();
+extern bool server_run, is_connect;
 
+
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

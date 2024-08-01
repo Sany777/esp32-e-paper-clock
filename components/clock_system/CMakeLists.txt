@@ -1,4 +1,5 @@
 idf_component_register(SRC_DIRS "src"
                         INCLUDE_DIRS "include"
-                        PRIV_REQUIRES driver
+                        REQUIRES clock_macro
+                        PRIV_REQUIRES driver clock_memory  wifi_service
                     ) 

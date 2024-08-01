@@ -9,7 +9,7 @@
 #define ADC_CHANNEL ADC1_CHANNEL_4 // ADC1 channel 4 is GPIO 13
 #define ADC_ATTEN ADC_ATTEN_DB_6  // 11 dB attenuation (voltage range 0 - 3.9V)
 #define ADC_MAX_VALUE 4095         // 12-bit ADC maximum value
-#define ADC_REF_VOLTAGE 4.4        // Reference voltage for 11 dB attenuation
+#define ADC_REF_VOLTAGE 8.4        // Reference voltage for 11 dB attenuation
 
 static const char *TAG = "ADC_READER";
 

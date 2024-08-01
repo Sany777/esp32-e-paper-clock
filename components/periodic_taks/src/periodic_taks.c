@@ -20,7 +20,7 @@ typedef struct {
 }periodic_task_data_t;
 
 esp_timer_handle_t periodic_timer = NULL;
-periodic_task_data_t periodic_tasks[MAX_TASKS_NUM];
+periodic_task_data_t periodic_tasks[MAX_TASKS_NUM] = {0};
 portMUX_TYPE periodic_timers_s = portMUX_INITIALIZER_UNLOCKED;
 
 
@@ -90,9 +90,9 @@ static int new_periodic_task(void *func,
         to_insert->delay_init = delay_ms;
         to_insert->count = count;
         to_insert->context = context;
+        to_insert->task_in_interrupt = run_in_intrp;
         res = ESP_OK;
     }
-
     task_runner_start();
     return res;
 }
@@ -120,6 +120,7 @@ static void task_runner(void *pvParameters)
     const periodic_task_data_t *end = periodic_tasks+MAX_TASKS_NUM;
     periodic_task_data_t *ptr;
     periodic_func_t func;
+    vTaskDelay(100);
     for(;;){
         if (xTaskNotifyWait(0x00, 0x00, &ulNotificationValue, portMAX_DELAY) == pdTRUE){
             ptr = periodic_tasks;
@@ -138,7 +139,7 @@ static void task_runner(void *pvParameters)
     }
 }
 
-static IRAM_ATTR void periodic_timer_cb(void*)
+static  void IRAM_ATTR periodic_timer_cb(void*)
 {
     BaseType_t xHigherPriorityTaskWoken;
     bool need_start_runer = false;
@@ -163,7 +164,7 @@ static IRAM_ATTR void periodic_timer_cb(void*)
         }
         ++ptr;
     }
-    if(need_start_runer){
+    if(task_runner_handle){
         vTaskNotifyGiveFromISR(task_runner_handle, &xHigherPriorityTaskWoken);
         portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
     }
@@ -174,8 +175,8 @@ static int init_timer(void)
     const esp_timer_create_args_t periodic_timer_args = {
         .callback = &periodic_timer_cb,
         .arg = NULL,
-        .name = "tasks_timer",
-        .skip_unhandled_events = true
+        .name = "tasks timer",
+        .skip_unhandled_events = false
     };
     return esp_timer_create(&periodic_timer_args, &periodic_timer);
 }
@@ -188,8 +189,8 @@ void task_runner_start(void)
     if(periodic_timer == NULL){
         init_timer();
     }
-    if(periodic_timer){
-        esp_timer_stop(periodic_timer);
+    if(periodic_timer && !esp_timer_is_active(periodic_timer)){
+        esp_timer_start_periodic(periodic_timer, 1000);
     }
 }
 
@@ -198,8 +199,8 @@ void task_runner_stop()
     if(task_runner_handle){
         vTaskSuspend(task_runner_handle);
     }
-    if(periodic_timer){
-        esp_timer_start_periodic(periodic_timer, 1000);
+    if(periodic_timer && esp_timer_is_active(periodic_timer)){
+        esp_timer_stop(periodic_timer);
     }
 }
 

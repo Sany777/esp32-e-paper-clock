@@ -11,6 +11,8 @@
 #include "freertos/FreeRTOS.h"
 #include "math.h"
 #include "driver/gpio.h"
+#include "clock_macro.h"
+
 
 static const char *TAG = "MPU6500";
 
@@ -46,7 +48,7 @@ const char* MPU6500::pos_to_str(int p)
     return pos[p];
 }
 
-int MPU6500::get_pos(int x, int y)
+int MPU6500::get_rotate(int x, int y)const
 {
     if(y>-50 && y < 50){
         if(x>-120 && x<-60)return TURN_DOWN;
@@ -84,7 +86,7 @@ int MPU6500::read_data()
 
     y_angle = atan2f(y, sqrtf(x * x + z * z)) * (180.0 / M_PI);
     x_angle = atan2f(-x, z) * (180.0 / M_PI);
-    pos = get_pos(x_angle, y_angle);
+    pos = get_rotate(x_angle, y_angle);
     return ESP_OK;
 }
 

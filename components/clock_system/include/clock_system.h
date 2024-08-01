@@ -2,58 +2,88 @@
 #define CLOCK_SYSTEM_H
 
 
-#define MAX_STR_LEN 32
-#define API_LEN 32
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "stdbool.h"
+
+enum BasicConst{
+    WEEK_DAYS_NUM   = 7,
+    MAX_STR_LEN     = 32,
+    API_LEN         = 32,
+    NOT_ALLOVED_SOUND_TIME = 6*60,
+};
 
 
-#include "stdint.h"
 
-#include "freertos/FreeRTOS.h"
-
-enum _bits{
-    BIT_IS_WIFI_INIT        = (1<<0),
-    BIT_IS_STA_CONNECTION   = (1<<1),
-    BIT_IS_TIME             = (1<<2),
-    BIT_IS_AP_MODE          = (1<<3),
-    BIT_IS_AP_CONNECTION    = (1<<4),
+enum Bits{
+    BIT_SOUNDS_ALLOW        = (1<<0),
+    BIT_AUTO_OFFSET         = (1<<1),
+    BIT_STA_DISABLE         = (1<<2),
+    BIT_STA_CONF_OK         = (1<<3),
+    BIT_SNTP_OK             = (1<<4),
     BIT_ERR_SSID_NO_FOUND   = (1<<5),
     BIT_TRY_CONNECT         = (1<<6),
-    BIT_STA_CONF_OK         = (1<<7),
-    BIT_SNTP_OK             = (1<<8),
-    BIT_AUTO_OFFSET         = (1<<9),
-    BIT_SOUNDS_ALLOW        = (1<<10),
-    BIT_STA_DISABLE         = (1<<10)
+    BIT_IS_AP_MODE          = (1<<7),
+    BIT_IS_AP_CONNECTION    = (1<<8),
+    BIT_IS_STA_CONNECTION   = (1<<9),
+    BIT_IS_WIFI_INIT        = (1<<10),
+    BIT_IS_TIME             = (1<<11),
+    STORED_FLAGS = (BIT_SOUNDS_ALLOW|BIT_AUTO_OFFSET|BIT_STA_DISABLE),
+    NUMBER_STORED_FLAGS = 3
 };
-#define STORED_FLAGS (1UL|BIT_SOUNDS_ALLOW|BIT_AUTO_OFFSET|BIT_STA_DISABLE)
 
-
-typedef struct{
+typedef struct {
     char ssid[MAX_STR_LEN];
     char pwd[MAX_STR_LEN];
     char city_name[MAX_STR_LEN];
     char api_key[API_LEN+1];
-    int *notification;
+    unsigned flags;
     int time_offset;
-    int notification_num;
-}clock_data_t;
-
-extern EventGroupHandle_t clock_event_group;
-
-#define get_device_state() \
-    (xEventGroupGetBits(clock_event_group))
-
-#define set_device_state(_bits) \
-    (xEventGroupSetBits(clock_event_group, (_bits)))
-
-#define clear_device_state(_bits) \
-    (xEventGroupClearBits(clock_event_group, (_bits)))
-
-#define wait_bits(_bits) \
-    (xEventGroupWaitBits(clock_event_group,(_bits),pdFALSE,pdFALSE,10000/portTICK_PERIOD_MS))
+    unsigned schema[WEEK_DAYS_NUM];
+    unsigned *notification;
+} clock_data_t;
 
 
 
+unsigned get_notif_num(unsigned *);
+int device_set_pwd(const char *str);
+int device_set_ssid(const char *str);
+int device_set_city(const char *str);
+int device_set_key(const char *str);
+int device_commit_changes();
+unsigned device_get_state();
+unsigned device_set_state(unsigned bits);
+unsigned device_clear_state(unsigned bits);
+unsigned device_wait_bits(unsigned bits);
+void device_system_init();
+void device_set_notify_data(unsigned *schema, unsigned *notif_data);
+bool is_signale(int cur_min, int cur_day);
 
-void clock_system_init();
+unsigned *device_get_schema();
+unsigned * device_get_notif();
+char *device_get_ssid();
+char *device_get_pwd();
+char *device_get_api_key();
+char *device_get_city_name();
+
+unsigned get_notif_num(unsigned *schema);
+
+#define get_notif_size(schema) (get_notif_num(schema)*sizeof(unsigned))
+
+
+
+
+
+
+
+
+
+#ifdef __cplusplus
+}
+#endif
+
+
 
 #endif

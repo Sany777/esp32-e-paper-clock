@@ -4,8 +4,8 @@
 #include <sys/time.h>
 #include "clock_system.h"
 #include "string.h"
-#include "sntp.h"
-#include "network_service.h"
+#include "esp_sntp.h"
+#include "wifi_service.h"
 
 #include "additional_functions.h"
 
@@ -27,7 +27,7 @@ void set_time_ms(long long time_ms)
     tv.tv_sec = time_ms/1000;
     tv.tv_usec = time_ms%1000;
     settimeofday(&tv, NULL);
-    set_device_state(BIT_IS_TIME);
+    // device_set_state(BIT_IS_TIME);
 }
 
 
@@ -40,9 +40,11 @@ static void set_time_cb(struct timeval *tv)
     // if the first call
     if(esp_sntp_get_sync_interval() < INTERVAL_10_HOUR){
         esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
-        xEventGroupSetBits(clock_event_group, BIT_IS_TIME|BIT_SNTP_OK);
+        // xEventGroupSetBits(clock_event_group, BIT_IS_TIME|BIT_SNTP_OK); 
     }
 }
+
+
 
 
 
@@ -67,26 +69,26 @@ void start_sntp()
 void stop_sntp()
 {
     esp_sntp_stop();
-    if(clock_event_group){
-        clear_device_state(BIT_SNTP_OK);
-    }
+    // if(clock_event_group){
+    //     // device_clear_state(BIT_SNTP_OK);
+    // }
 }
 
 // format "%H:%M:%S"...
 int snprintf_time(char *strftime_buf, int buf_size, const char *format)
 {
-    EventBits_t bits = get_device_state();
-    if(! bits&BIT_IS_WIFI_INIT){
-        CHECK_AND_RET_ERR(wifi_init());
-    } 
-    if( !(bits&BIT_IS_STA_CONNECTION)){
-        CHECK_AND_RET_ERR(connect_sta());
-    }
-    if(!(bits&BIT_SNTP_OK)){
-        start_sntp();
-        if(! (wait_bits(BIT_SNTP_OK) &BIT_SNTP_OK))
-            return ESP_FAIL;
-    }
+    // EventBits_t bits = device_get_state();
+    // if(! (bits&BIT_IS_WIFI_INIT) ){
+    //     CHECK_AND_RET_ERR(wifi_init());
+    // } 
+    // if( !(bits&BIT_IS_STA_CONNECTION)){
+    //     CHECK_AND_RET_ERR(connect_sta());
+    // }
+    // if(!(bits&BIT_SNTP_OK)){
+    //     start_sntp();
+    //     // if(! (device_wait_bits(BIT_SNTP_OK) &BIT_SNTP_OK))
+    //     //     return ESP_FAIL;
+    // }
 
     time_t now;
     struct tm timeinfo;

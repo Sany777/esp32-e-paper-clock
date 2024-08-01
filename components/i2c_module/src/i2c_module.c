@@ -2,6 +2,7 @@
 
 #include "driver/i2c.h"
 #include "additional_functions.h"
+#include "clock_macro.h"
 
 static bool init;
 

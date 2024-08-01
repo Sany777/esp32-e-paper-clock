@@ -16,8 +16,8 @@
 #define LEDC_MODE               LEDC_HIGH_SPEED_MODE
 #define LEDC_CHANNEL            LEDC_CHANNEL_0
 #define LEDC_DUTY_RES           LEDC_TIMER_13_BIT 
-#define LEDC_DUTY               (1000) //  50%
-#define LEDC_FREQUENCY          (2000) // 2.6 кГц
+#define LEDC_DUTY               (50) //  50%
+#define LEDC_FREQUENCY          (1000) // 2.6 кГц
 
 
 static bool buzzer_init;
@@ -64,13 +64,12 @@ void buzer_start()
     if(_delay == 0){
         _delay = 20;
     }
-    periodic_task_remove(buzer_stop);
     periodic_task_in_isr_create(buzer_stop, _delay/2, 1);
 }
 
 void start_signale(unsigned  delay, unsigned  count)
 {
-    _delay = _delay;
+    _delay = delay;
     --count;
     if(count){
         periodic_task_in_isr_create(buzer_start, _delay, count);

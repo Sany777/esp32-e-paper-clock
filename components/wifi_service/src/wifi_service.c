@@ -1,12 +1,10 @@
-#include "network_service.h"
+#include "wifi_service.h"
 
 #include "clock_system.h"
 #include <stdio.h>
 #include <string.h>
 
 
-// #include "freertos/FreeRTOS.h"
-// #include "freertos/task.h"
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_event.h"
@@ -17,6 +15,8 @@
 #include "esp_mac.h"
 #include "additional_functions.h"
 #include "clock_system.h"
+#include "setting_server.h"
+#include "clock_macro.h"
 
 
 wifi_mode_t wifi_mode;
@@ -41,38 +41,37 @@ static void sta_handler(void* arg, esp_event_base_t event_base, int32_t event_id
             wifi_event_sta_disconnected_t *event_sta_disconnected = (wifi_event_sta_disconnected_t *) event_data;
             if(event_sta_disconnected->reason == WIFI_REASON_NO_AP_FOUND
                         || event_sta_disconnected->reason == WIFI_REASON_HANDSHAKE_TIMEOUT){
-                set_device_state(BIT_ERR_SSID_NO_FOUND);
+                device_set_state(BIT_ERR_SSID_NO_FOUND);
             } else {
-                clear_device_state(BIT_ERR_SSID_NO_FOUND);
+                device_clear_state(BIT_ERR_SSID_NO_FOUND);
             }
         } else {
-            clear_device_state(BIT_IS_STA_CONNECTION);
+            device_clear_state(BIT_IS_STA_CONNECTION);
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         retry_num = 0;
-        set_device_state(BIT_IS_STA_CONNECTION);
-        clear_device_state(BIT_ERR_SSID_NO_FOUND);
+        device_set_state(BIT_IS_STA_CONNECTION);
+        device_clear_state(BIT_ERR_SSID_NO_FOUND);
     }
 }
 
 
 static void ap_handler(void* main_data, esp_event_base_t event_base,
                             int32_t event_id, void* event_data)
-{      
+{
     if (event_id == WIFI_EVENT_AP_STOP){
-        
-    } else if(event_id == WIFI_EVENT_AP_STACONNECTED){
-        // wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
-        // event->mac;
-    } else if(event_id == WIFI_EVENT_AP_STADISCONNECTED){
 
+    } else if(event_id == WIFI_EVENT_AP_STACONNECTED){
+        is_connect = true;
+    } else if(event_id == WIFI_EVENT_AP_STADISCONNECTED){
+        is_connect = false;
     }
 }
 
 
 int wifi_init(void) 
 {
-    if(get_device_state()&BIT_IS_WIFI_INIT)return ESP_FAIL;
+    if(device_get_state()&BIT_IS_WIFI_INIT)return ESP_FAIL;
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     wifi_mode = WIFI_MODE_NULL;
     esp_err_t ret = nvs_flash_init();
@@ -85,7 +84,7 @@ int wifi_init(void)
     CHECK_AND_RET_ERR(esp_netif_init());
     CHECK_AND_RET_ERR(esp_wifi_init(&cfg));
     CHECK_AND_RET_ERR(esp_wifi_set_storage(WIFI_STORAGE_RAM));
-    set_device_state(BIT_IS_WIFI_INIT);
+    device_set_state(BIT_IS_WIFI_INIT);
     return ESP_OK;
 }
 
@@ -112,7 +111,7 @@ void set_wifi_ap_config(char *ssid, char *pwd)
 
 int connect_sta()
 {
-    if(! get_device_state()&BIT_IS_WIFI_INIT){
+    if(! (device_get_state()&BIT_IS_WIFI_INIT) ){
         CHECK_AND_RET_ERR(wifi_init());
     }
     if (wifi_mode == WIFI_MODE_STA){
@@ -146,14 +145,14 @@ int connect_sta()
     }
     CHECK_AND_RET_ERR(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config));
     CHECK_AND_RET_ERR(esp_wifi_start());
-    return wait_bits(BIT_IS_STA_CONNECTION)
-            &BIT_IS_STA_CONNECTION ? ESP_OK : ESP_ERR_TIMEOUT;
+    return device_wait_bits(BIT_IS_STA_CONNECTION)
+           &BIT_IS_STA_CONNECTION ? ESP_OK : ESP_ERR_TIMEOUT;
 }
 
 
-int connect_ap()
+int start_ap()
 {
-    if(! get_device_state()&BIT_IS_WIFI_INIT){
+    if(! (device_get_state()&BIT_IS_WIFI_INIT) ){
         CHECK_AND_RET_ERR(wifi_init());
     }
     if (wifi_mode != WIFI_MODE_AP){
@@ -182,7 +181,7 @@ int connect_ap()
 
 void wifi_stop()
 {
-    clear_device_state(BIT_IS_STA_CONNECTION|BIT_IS_AP_CONNECTION);
+    device_clear_state(BIT_IS_STA_CONNECTION|BIT_IS_AP_CONNECTION);
     esp_wifi_stop();
     vTaskDelay(500);
     if (wifi_mode == WIFI_MODE_AP){

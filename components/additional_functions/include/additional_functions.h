@@ -1,55 +1,37 @@
 #ifndef ADD_FUNCTIONS_H
 #define ADD_FUNCTIONS_H
 
-#include "stdint.h"
-#include "esp_log.h"
-#include "esp_err.h"
-#include "stddef.h"
 
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+// class AutoLock{
+//     // SemaphoreHandle_t _semaphore;
+// public:
+//     AutoLock(int &semaphore);
+//     ~AutoLock();
+// };
 
-#define CHECK_AND_RET_ERR(result_) \
-    do{ \
-        const int e = result_; \
-        if(e != ESP_OK){ \
-            ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e)); \
-            return e; \
-        } \
-    }while(0)
+// #define ENTER_CRITICAL(semaphore)    
+//     AutoLock _al(semaphore)
 
-#define CHECK_AND_GO(result_, label_) \
-    do{ \
-        const int e = result_; \
-        if(e != ESP_OK){ \
-            ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e)); \
-            goto label_; } \       
-    }while(0)
 
-#define CHECK_AND_RET(err_) \
-    do{ \
-        const int e = err_; \
-        if(e != ESP_OK){ \
-            ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e)); \
-            return; \
-        } \
-    }while(0)
 
+
+
+// #include "cstdint"
 
 
 
 void clock_sleep(const unsigned sleep_time_ms);
 int clock_set_pin(int pin, unsigned state);
+unsigned get_num(char *data, unsigned size);
+char * num_to_str(char *buf, unsigned num, unsigned char digits, const unsigned char base);
 
 
-
-
-
-
-
+unsigned num_arr_to_str(char *dst, unsigned *src, unsigned char dst_digits, unsigned src_size);
 
 
 
@@ -57,6 +39,7 @@ int clock_set_pin(int pin, unsigned state);
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif
 

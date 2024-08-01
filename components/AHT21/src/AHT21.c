@@ -4,6 +4,7 @@
 #include "freertos/task.h"
 #include "i2c_module.h"
 #include "additional_functions.h"
+#include "clock_macro.h"
 
 #define AHT21_ADDR 0x38
 #define AHT21_CMD_TRIGGER 0xAC

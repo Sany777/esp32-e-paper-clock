@@ -1,11 +1,9 @@
 #ifndef MPU6500_H
 #define MPU6500_H
 
-#include "stdint.h"
+#include "cstdint"
 
-// #ifdef __cplusplus
-// extern "C" {
-// #endif
+
 
 
 #define MPU6500_EN_PIN 19
@@ -26,11 +24,11 @@ public:
     void off();
     int init();
     int read_data();
-    int get_x(){return x_angle;}
-    int get_y(){return y_angle;}
+    int get_x()const{return x_angle;}
+    int get_y()const{return y_angle;}
     int get_temp(){return temperature;}
-    int get_pos(int x, int y);
-    int get_pos(){return pos;}
+    int get_rotate(int x, int y)const;
+    int get_rotate()const{return pos;}
     ~MPU6500(){off();}
     const char* pos_to_str(int p);
     
@@ -66,11 +64,6 @@ private:
 
 
 
-
-
-// #ifdef __cplusplus
-// }
-// #endif
 
 
 
