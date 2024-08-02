@@ -1,19 +1,28 @@
-#include "clock_system.h"
+#include "device_system.h"
 
-#include "clock_memory.h"
 #include "stdlib.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "semaphore.h"
-#include <clock_macro.h>
 #include "string.h"
-#include "wifi_service.h"
+#include "portmacro.h"
+#include "esp_sleep.h"
 
+#include "device_macro.h"
+#include "wifi_service.h"
+#include "device_gpio.h"
+#include "device_memory.h"
+
+#include "i2c_module.h"
+#include "epaper_adapter.h"
+#include "adc_reader.h"
+#include "AHT21.h"
+#include "MPU6500.h"
 
 
 static bool changes_main_data, changes_notify_data;
 static clock_data_t main_data;
-static SemaphoreHandle_t recursive_mux;
+// static SemaphoreHandle_t recursive_mux;
 static EventGroupHandle_t clock_event_group;
 static const char *MAIN_DATA_NAME = "main_data";
 static const char *NOTIFY_DATA_NAME = "notify_data";
@@ -31,9 +40,6 @@ unsigned get_notif_num(unsigned *schema)
     }
     return res;
 }
-
-
-
 
 int device_set_pwd(const char *str)
 {
@@ -128,14 +134,7 @@ unsigned device_wait_bits(unsigned bits)
     return xEventGroupWaitBits(clock_event_group,(EventBits_t) (bits),pdFALSE,pdFALSE,10000/portTICK_PERIOD_MS);
 }
 
-void device_system_init()
-{
-    clock_event_group = xEventGroupCreate();
-    wifi_init();
-    read_data();
 
-
-}
 
 unsigned *device_get_schema()
 {
@@ -194,4 +193,38 @@ bool is_signale(int cur_min, int cur_day)
         }
     }
     return false;
+}
+
+static void periph_init()
+{
+    device_set_pin(EP_ON_PIN, 1);
+    device_set_pin(AHT21_EN_PIN, 1);
+    device_set_pin(MPU6500_EN_PIN, 1);
+    vTaskDelay(pdMS_TO_TICKS(500));
+}
+
+void device_system_init()
+{
+    clock_event_group = xEventGroupCreate();
+    periph_init();
+    read_data();
+    device_gpio_init();
+    I2C_init();
+    wifi_init();
+    adc_reader_init();
+    AHT21_init();
+    epaper_init();
+    mpu_init();
+}
+
+
+void device_sleep(const unsigned sleep_time_ms)
+{
+    AHT21_off();
+    device_set_pin(EP_ON_PIN, 0);
+    wifi_off();
+    esp_sleep_enable_timer_wakeup((uint64_t)sleep_time_ms * 1000); 
+    esp_sleep_enable_ext0_wakeup((gpio_num_t)GPIO_WAKEUP_PIN, 1);
+    esp_light_sleep_start();
+    periph_init();
 }

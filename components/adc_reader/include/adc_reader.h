@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#define MESUR_NUM 500
+
 void adc_reader_init(void);
 float adc_reader_get_voltage(void);
 

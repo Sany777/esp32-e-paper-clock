@@ -1,10 +1,13 @@
 #include "AHT21.h"
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "i2c_module.h"
-#include "additional_functions.h"
-#include "clock_macro.h"
+#include "device_macro.h"
+#include "device_gpio.h"
+
+
 
 #define AHT21_ADDR 0x38
 #define AHT21_CMD_TRIGGER 0xAC
@@ -19,13 +22,13 @@
 #define AHT21_MAX_BUSY_WAIT_MS 1000 
 
 static const char *TAG = "AHT21";
+static bool is_init;
+
 
 int AHT21_init() 
 {
     ESP_LOGI(TAG, "Initializing AHT21");
-    AHT21_off();
     vTaskDelay(pdMS_TO_TICKS(500));
-    AHT21_on();
     // Calibrate sensor
     uint8_t calib_data[] = {AHT21_CMD_CALIBRATE, 0x08, 0x00};
     CHECK_AND_RET_ERR(I2C_write_bytes(AHT21_ADDR, calib_data, sizeof(calib_data)));
@@ -38,11 +41,15 @@ int AHT21_init()
     }
 
     ESP_LOGI(TAG, "AHT21 initialized successfully");
+    is_init = true;
     return ESP_OK;
 }
 
 int AHT21_read_data(float *temperature, float *humidity) 
 {
+    if(!is_init){
+        CHECK_AND_RET_ERR(AHT21_on());
+    }
     uint8_t measure_data[] = {AHT21_CMD_TRIGGER, 0x33, 0x00};
     uint8_t data[6] = {0};
     uint8_t status;
@@ -69,10 +76,13 @@ int AHT21_read_data(float *temperature, float *humidity)
 
 void AHT21_off()
 {
-    clock_set_pin(AHT21_EN_PIN, 0);
+    device_set_pin(AHT21_EN_PIN, 0);
+    is_init = false;
 }
-void AHT21_on()
+
+int AHT21_on()
 {
-    clock_set_pin(AHT21_EN_PIN, 1);
+    device_set_pin(AHT21_EN_PIN, 1);
     vTaskDelay(pdMS_TO_TICKS(300));
+    return AHT21_init();
 }

@@ -3,24 +3,24 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include "cJSON.h"
+#include "stdbool.h"
 
 #include "esp_http_server.h"
 // #include "esp_ota_ops.h"
 // #include "esp_partition.h"
 #include "esp_chip_info.h"
 #include "string.h"
-
+#include "portmacro.h"
 #include "clock_module.h"
 #include "additional_functions.h"
 #include "string.h"
-#include "clock_module.h"
-#include "clock_macro.h"
-#include "clock_system.h"
+#include "device_macro.h"
+
+#include "device_system.h"
 
 
 #define BUF_SIZE 2000
 
-bool server_run, is_connect;
 
 static httpd_handle_t server;
 static char *server_buf;
@@ -40,8 +40,12 @@ const char *MES_SUCCESSFUL = "Successful";
 #define SEND_SERVER_ERR(_req_, _str_, _label_) \
     do{ httpd_resp_send_err((_req_), HTTPD_500_INTERNAL_SERVER_ERROR, (_str_)); goto _label_;}while(0)
 
+static int deinit_server();
 
-
+void server_stop()
+{
+    device_clear_state(BIT_SERVER_RUN);
+}
 
 static esp_err_t index_redirect_handler(httpd_req_t *req)
 {
@@ -84,7 +88,7 @@ static esp_err_t handler_close(httpd_req_t *req)
 {
     httpd_resp_sendstr(req, "Goodbay!");
     vTaskDelay(500/portTICK_PERIOD_MS);
-    server_run = false;
+    device_clear_state(BIT_SERVER_RUN);
     return ESP_OK;
 }
 
@@ -373,7 +377,7 @@ label_1:
 }
 
 
-int stop_server()
+static int deinit_server()
 {
     esp_err_t err = ESP_FAIL;
     if(server != NULL){
@@ -385,7 +389,6 @@ int stop_server()
         free(server_buf); 
         server_buf = NULL;
     }
-
     return err;
 }
 
@@ -502,23 +505,28 @@ int start_server()
     };
     httpd_register_uri_handler(server, &redir_uri);
     int timeout = 0;
-    server_run = true;
     ESP_LOGI("","server start");
     bool open_sesion = false;
-    while(server_run && timeout<200){
+    device_set_state(BIT_SERVER_RUN);
+    unsigned bits;
+    while(bits = device_get_state(), bits&BIT_SERVER_RUN){
         vTaskDelay(100/portTICK_PERIOD_MS);
         if(open_sesion){
-            if(!is_connect){
-                server_run = false;
+            if(!(bits&BIT_IS_AP_CONNECTION) ){
+                stop_server();
             }
-        } else if(is_connect){
+        } else if(bits&BIT_IS_AP_CONNECTION){
             open_sesion = true;
+        } else if(timeout>200){
+            stop_server();
         } else {
             timeout += 1;
         }
     }
-
     device_commit_changes();
-    stop_server();
+    deinit_server();
+    ESP_LOGI("","stop start");
     return ESP_OK;
 }
+
+

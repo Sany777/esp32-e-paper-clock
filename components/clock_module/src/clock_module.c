@@ -2,7 +2,7 @@
 
 #include <time.h>
 #include <sys/time.h>
-#include "clock_system.h"
+#include "device_system.h"
 #include "string.h"
 #include "esp_sntp.h"
 #include "wifi_service.h"

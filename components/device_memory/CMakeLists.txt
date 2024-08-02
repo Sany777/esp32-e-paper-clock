@@ -1,4 +1,4 @@
 idf_component_register(SRC_DIRS "src"
                         INCLUDE_DIRS "include"
-                        PRIV_REQUIRES driver additional_functions clock_macro
+                        PRIV_REQUIRES nvs_flash device_macro
                     ) 

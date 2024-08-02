@@ -1,5 +1,5 @@
-#ifndef CLOCK_MACRO_H
-#define CLOCK_MACRO_H
+#ifndef device_macro_H
+#define device_macro_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -14,19 +14,19 @@ extern "C" {
 #define CHECK_AND_RET_ERR(result_) \
     do{ \
         const int e = result_; \
-        if(e != ESP_OK){ ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e)); return e; } \
+        if(e != ESP_OK){ ESP_LOGE("CHECK_AND_RET_ERR:", "%s", esp_err_to_name(e)); return e; } \
     }while(0)
 
 #define CHECK_AND_GO(result_, label_) \
     do{ \
         const int e = result_; \
-        if(e != ESP_OK){ ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e)); goto label_; } \
+        if(e != ESP_OK){ ESP_LOGE("CHECK_AND_GO:", "%s", esp_err_to_name(e)); goto label_; } \
     }while(0)
 
 #define CHECK_AND_RET(err_) \
     do{ \
         const int e = err_; \
-        if(e != ESP_OK){ ESP_LOGE("", "Operation failed: %s", esp_err_to_name(e)); return; } \
+        if(e != ESP_OK){ ESP_LOGE("CHECK_AND_RET:", "%s", esp_err_to_name(e)); return; } \
     }while(0)
 
 #define flag_reset(flags, index)    \
@@ -51,4 +51,4 @@ extern "C" {
 
 
 
-#endif // CLOCK_MACRO_H
+#endif // device_macro_H

@@ -25,12 +25,8 @@ extern "C" {
 
 
 
-void clock_sleep(const unsigned sleep_time_ms);
-int clock_set_pin(int pin, unsigned state);
 unsigned get_num(char *data, unsigned size);
 char * num_to_str(char *buf, unsigned num, unsigned char digits, const unsigned char base);
-
-
 unsigned num_arr_to_str(char *dst, unsigned *src, unsigned char dst_digits, unsigned src_size);
 
 

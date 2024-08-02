@@ -1,6 +1,6 @@
 #include "wifi_service.h"
 
-#include "clock_system.h"
+#include "device_system.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -14,9 +14,9 @@
 #include "sdkconfig.h"
 #include "esp_mac.h"
 #include "additional_functions.h"
-#include "clock_system.h"
+#include "device_system.h"
 #include "setting_server.h"
-#include "clock_macro.h"
+#include "device_macro.h"
 
 
 wifi_mode_t wifi_mode;
@@ -50,7 +50,7 @@ static void sta_handler(void* arg, esp_event_base_t event_base, int32_t event_id
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         retry_num = 0;
-        device_set_state(BIT_IS_STA_CONNECTION);
+        device_set_state(BIT_IS_STA_CONNECTION|BIT_STA_CONF_OK);
         device_clear_state(BIT_ERR_SSID_NO_FOUND);
     }
 }
@@ -62,9 +62,18 @@ static void ap_handler(void* main_data, esp_event_base_t event_base,
     if (event_id == WIFI_EVENT_AP_STOP){
 
     } else if(event_id == WIFI_EVENT_AP_STACONNECTED){
-        is_connect = true;
+        device_set_state(BIT_IS_AP_CONNECTION);
     } else if(event_id == WIFI_EVENT_AP_STADISCONNECTED){
-        is_connect = false;
+        device_clear_state(BIT_IS_AP_CONNECTION);
+    }
+}
+
+void wifi_off()
+{
+    if(device_get_state()&BIT_IS_WIFI_INIT){
+        wifi_stop();
+        esp_wifi_deinit();
+        device_clear_state(BIT_IS_WIFI_INIT);
     }
 }
 
@@ -181,7 +190,7 @@ int start_ap()
 
 void wifi_stop()
 {
-    device_clear_state(BIT_IS_STA_CONNECTION|BIT_IS_AP_CONNECTION);
+    device_clear_state(BIT_IS_STA_CONNECTION|BIT_IS_AP_CONNECTION|BIT_IS_AP_MODE|BIT_STA_CONF_OK);
     esp_wifi_stop();
     vTaskDelay(500);
     if (wifi_mode == WIFI_MODE_AP){

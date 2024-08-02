@@ -1,5 +1,5 @@
-#include "clock_memory.h"
-#include "clock_macro.h"
+#include "device_memory.h"
+#include "device_macro.h"
 
 #include "nvs.h"
 

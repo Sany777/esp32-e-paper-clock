@@ -13,7 +13,7 @@ void buzer_stop();
 }
 #endif
 
-#define SIG_OUT_PIN          (18) 
+
 
 
 

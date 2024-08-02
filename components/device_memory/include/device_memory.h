@@ -1,5 +1,5 @@
-#ifndef CLOCK_MEMORY_H_
-#define CLOCK_MEMORY_H_
+#ifndef device_memory_H_
+#define device_memory_H_
 
 
 #ifdef __cplusplus

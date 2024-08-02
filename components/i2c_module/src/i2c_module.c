@@ -1,8 +1,8 @@
 #include "i2c_module.h"
 
 #include "driver/i2c.h"
-#include "additional_functions.h"
-#include "clock_macro.h"
+#include "device_macro.h"
+#include "device_gpio.h"
 
 static bool init;
 

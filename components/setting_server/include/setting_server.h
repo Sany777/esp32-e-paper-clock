@@ -3,17 +3,16 @@
 
 
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "stdbool.h"
 
-int stop_server();
+
 int start_server();
-extern bool server_run, is_connect;
 
-
+void stop_server();
 
 #ifdef __cplusplus
 }

@@ -1,30 +1,41 @@
-#include "epaper_adaper.h"
+#include "epaper_adapter.h"
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include "epaper.h"
+#include "epdpaint.h"
 #include "fonts.h"
 #include "epd1in54_V2.h"
 
 
-#include "additional_functions.h"
+static int SCREEN_WIDTH   = 200;
+static int SCREEN_HEIGHT  = 200;
+static int MAX_SYMB       = 100;
+int rotate;
+Paint *paint;
+Epd epd;
+unsigned char *screen;
+char *text_buf;
 
 
-void EPaperAdapter::init()
+static sFONT* epaper_get_font(int font_num);
+
+
+
+void epaper_init()
 {
     screen = new unsigned char[SCREEN_WIDTH * SCREEN_HEIGHT / 8];
     text_buf = new char[MAX_SYMB];
-    clock_set_pin(EP_ON_PIN, 1);
-    vTaskDelay(100);
     paint = new Paint(screen, epd.width, epd.height);
-    paint->SetRotate(this->rotate);
+    paint->SetRotate(rotate);
     paint->Clear(UNCOLORED);
     epd.LDirInit();
     epd.Clear();
 }
 
-sFONT* EPaperAdapter::get_font(int font_num)
+static sFONT* epaper_get_font(int font_num)
 {
     switch(font_num){
         case 48: return &Font48; 
@@ -40,32 +51,32 @@ sFONT* EPaperAdapter::get_font(int font_num)
 }
 
 
-void EPaperAdapter::printf(int hor, int ver, int font, const char *format, ...)
+void epaper_printf(int hor, int ver, int font, const char *format, ...)
 {
         va_list args;
         va_start (args, format);
         vsnprintf (text_buf, MAX_SYMB, format, args);
         va_end (args);
-        paint->DrawStringAt(hor, ver, text_buf, get_font(font), COLORED);
+        paint->DrawStringAt(hor, ver, text_buf, epaper_get_font(font), COLORED);
         epd.DisplayPart(screen);
 }
 
-void EPaperAdapter::refresh()
+void epaper_refresh()
 {
-        epd.DisplayFrame();
+    epd.DisplayFrame();
 }
 
-void EPaperAdapter::sleep()
+void epaper_sleep()
 {
     epd.Sleep();
 }
 
-void EPaperAdapter::set_rotate(int cur_rotate)
+void epaper_set_rotate(int cur_rotate)
 {
-    if(this->rotate != cur_rotate){
-        this->rotate = cur_rotate;
-        this->paint->SetRotate(this->rotate);
-        this->epd.Clear();
-        this->epd.DisplayPart(screen);
+    if(rotate != cur_rotate){
+        rotate = cur_rotate;
+        paint->SetRotate(rotate);
+        epd.Clear();
+        epd.DisplayPart(screen);
     }
 }

@@ -1,5 +1,5 @@
-#ifndef CLOCK_SYSTEM_H
-#define CLOCK_SYSTEM_H
+#ifndef DEVICE_SYSTEM_H
+#define DEVICE_SYSTEM_H
 
 
 #ifdef __cplusplus
@@ -15,8 +15,6 @@ enum BasicConst{
     NOT_ALLOVED_SOUND_TIME = 6*60,
 };
 
-
-
 enum Bits{
     BIT_SOUNDS_ALLOW        = (1<<0),
     BIT_AUTO_OFFSET         = (1<<1),
@@ -30,6 +28,8 @@ enum Bits{
     BIT_IS_STA_CONNECTION   = (1<<9),
     BIT_IS_WIFI_INIT        = (1<<10),
     BIT_IS_TIME             = (1<<11),
+    BIT_SERVER_RUN          = (1<<12),
+    BIT_IS_AP_CLIENT        = (1<<13),
     STORED_FLAGS = (BIT_SOUNDS_ALLOW|BIT_AUTO_OFFSET|BIT_STA_DISABLE),
     NUMBER_STORED_FLAGS = 3
 };
@@ -57,18 +57,18 @@ unsigned device_get_state();
 unsigned device_set_state(unsigned bits);
 unsigned device_clear_state(unsigned bits);
 unsigned device_wait_bits(unsigned bits);
-void device_system_init();
 void device_set_notify_data(unsigned *schema, unsigned *notif_data);
 bool is_signale(int cur_min, int cur_day);
-
 unsigned *device_get_schema();
 unsigned * device_get_notif();
 char *device_get_ssid();
 char *device_get_pwd();
 char *device_get_api_key();
 char *device_get_city_name();
-
+void device_sleep(const unsigned sleep_time_ms);
 unsigned get_notif_num(unsigned *schema);
+void device_system_init();
+
 
 #define get_notif_size(schema) (get_notif_num(schema)*sizeof(unsigned))
 
