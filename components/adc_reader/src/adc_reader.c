@@ -6,13 +6,16 @@
 #include "adc_reader.h"
 #include "device_gpio.h"
 
+#include "freertos/FreeRTOS.h"
 
 
 
-#define ADC_CHANNEL ADC1_CHANNEL_4  // ADC1 channel 4 is GPIO 13
-#define ADC_ATTEN ADC_ATTEN_DB_6    // 11 dB attenuation (voltage range 0 - 3.9V)
+#define ADC_CHANNEL ADC2_CHANNEL_4  // ADC1 channel 4 is GPIO 13
+#define ADC_ATTEN ADC_ATTEN_DB_12        // 11 dB attenuation (voltage range 0 - 3.9V)
 #define ADC_MAX_VALUE 4095          // 12-bit ADC maximum value
-#define ADC_REF_VOLTAGE 8.4         // Reference voltage for 11 dB attenuation
+#define VREF 1100 // Вольтаж референсного джерела у мілівольтах
+
+
 
 static const char *TAG = "ADC_READER";
 
@@ -27,13 +30,14 @@ void adc_reader_init(void)
 
 float adc_reader_get_voltage(void)
 {
-    int num = MESUR_NUM;
-    int adc_value = 0;
-    while(num--){
-        adc_value += adc1_get_raw(ADC_CHANNEL);
+    // adc_reader_init();
+    uint32_t res = 0;
+    for(int i=0; i<MESUR_NUM; ++i){
+        res += adc1_get_raw(ADC_CHANNEL);
     }
-    adc_value /= MESUR_NUM;
-    float voltage = ((float)adc_value / ADC_MAX_VALUE) * ADC_REF_VOLTAGE;
-    ESP_LOGI(TAG, "ADC Value: %d, Voltage: %.2fV", adc_value, voltage);
+    uint32_t adc_value = res/MESUR_NUM;
+    float voltage = (float)adc_value / ADC_MAX_VALUE * (VREF / 1000.0);
+
+    ESP_LOGI(TAG, "Voltage: %.2fV", voltage);
     return voltage;
 }

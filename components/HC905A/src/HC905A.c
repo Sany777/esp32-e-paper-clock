@@ -12,12 +12,12 @@
 #include "periodic_taks.h"
 
 
-#define LEDC_TIMER              LEDC_TIMER_0
-#define LEDC_MODE               LEDC_HIGH_SPEED_MODE
+#define LEDC_TIMER              LEDC_TIMER_2
+#define LEDC_MODE               LEDC_LOW_SPEED_MODE
 #define LEDC_CHANNEL            LEDC_CHANNEL_0
 #define LEDC_DUTY_RES           LEDC_TIMER_13_BIT 
 #define LEDC_DUTY               (50) //  50%
-#define LEDC_FREQUENCY          (1000) // 2.6 кГц
+#define LEDC_FREQUENCY          (1200) // 2.6 кГц
 
 
 static bool buzzer_init;
@@ -49,26 +49,53 @@ void init_pwm(void)
 {
     ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
     ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
-    ESP_ERROR_CHECK(ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, LEDC_DUTY));
-    ESP_ERROR_CHECK(ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel));
     buzzer_init = true;
 }
 
-void buzer_start()
+
+void buz_test(int freq_hz)
 {
+    ledc_timer_pause(ledc_timer.speed_mode, ledc_timer.timer_num);
+    ledc_timer.freq_hz = freq_hz;
+    
+    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+
     if(!buzzer_init){
-        init_pwm();
-    } else { 
+        ESP_ERROR_CHECK(ledc_channel_config(&ledc_channel));
+        ESP_ERROR_CHECK(ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, LEDC_DUTY));
+        ESP_ERROR_CHECK(ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel));
+        buzzer_init = true;
+    } else {
         ledc_timer_resume(ledc_timer.speed_mode, ledc_timer.timer_num);
     }
+
+    periodic_task_in_isr_create(buzer_stop, 70, 1);
+}
+
+
+
+void buzer_start()
+{
+    if(buzzer_init){
+        ledc_timer_resume(ledc_timer.speed_mode, ledc_timer.timer_num);
+    } else {
+        init_pwm();
+        ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, 50);
+        ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
+    }
     if(_delay == 0){
-        _delay = 20;
+        _delay = 100;
     }
     periodic_task_in_isr_create(buzer_stop, _delay/2, 1);
 }
 
-void start_signale(unsigned  delay, unsigned  count)
+void start_signale(unsigned  delay, unsigned  count, int loud)
 {
+    if(!buzzer_init){
+        init_pwm();
+    }
+    ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, loud);
+    ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
     _delay = delay;
     --count;
     if(count){

@@ -13,11 +13,10 @@ int device_get_joystick_btn();
 int device_set_pin(int pin, unsigned state);
 
 
-#define GPIO_WAKEUP_PIN     (0)
+#define GPIO_WAKEUP_PIN     (34)
 #define AHT21_EN_PIN        (23)
 #define SIG_OUT_PIN         (18) 
 #define MPU6500_EN_PIN      (19)
-#define MPU6500_INT_PIN     (GPIO_WAKEUP_PIN) 
 #define I2C_MASTER_SCL_IO   (26)       
 #define I2C_MASTER_SDA_IO   (25)        
 #define EP_ON_PIN           (22)

@@ -25,7 +25,7 @@ void epaper_init();
 void epaper_printf(int ver, int hor, int font, const char * format, ...);
 void epaper_sleep();
 void epaper_set_rotate(int cur_rotate);
-
+void epaper_clear();
 
 #ifdef __cplusplus
 }

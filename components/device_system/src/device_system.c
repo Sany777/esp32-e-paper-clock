@@ -35,16 +35,17 @@ static int read_data();
 unsigned get_notif_num(unsigned *schema)
 {
     unsigned res = 0;
-    for(int i=0; i<WEEK_DAYS_NUM; ++i){
-        res += schema[i];
+    unsigned *end = schema + WEEK_DAYS_NUM;
+    while(schema != end){
+        res += *(schema++);
     }
     return res;
 }
 
 int device_set_pwd(const char *str)
 {
-    const int len = strnlen(str, API_LEN);
-    if(len == MAX_STR_LEN || len == 0)return ESP_ERR_INVALID_SIZE;
+    const int len = strnlen(str, MAX_STR_LEN);
+    if(len >= MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
     memcpy(main_data.pwd, str, len);
     main_data.pwd[len] = 0;
     changes_main_data = true;
@@ -53,8 +54,8 @@ int device_set_pwd(const char *str)
 
 int device_set_ssid(const char *str)
 {
-    const int len = strnlen(str, API_LEN);
-    if(len == MAX_STR_LEN || len == 0)return ESP_ERR_INVALID_SIZE;
+    const int len = strnlen(str, MAX_STR_LEN);
+    if(len == MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
     memcpy(main_data.ssid, str, len);
     main_data.ssid[len] = 0;
     changes_main_data = true;
@@ -63,8 +64,8 @@ int device_set_ssid(const char *str)
 
 int device_set_city(const char *str)
 {
-    const int len = strnlen(str, API_LEN);
-    if(len == MAX_STR_LEN || len == 0)return ESP_ERR_INVALID_SIZE;
+    const int len = strnlen(str, MAX_STR_LEN);
+    if(len >= MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
     memcpy(main_data.city_name, str, len);
     main_data.city_name[len] = 0;
     changes_main_data = true;
@@ -134,8 +135,6 @@ unsigned device_wait_bits(unsigned bits)
     return xEventGroupWaitBits(clock_event_group,(EventBits_t) (bits),pdFALSE,pdFALSE,10000/portTICK_PERIOD_MS);
 }
 
-
-
 unsigned *device_get_schema()
 {
     return main_data.schema;
@@ -195,36 +194,38 @@ bool is_signale(int cur_min, int cur_day)
     return false;
 }
 
-static void periph_init()
-{
-    device_set_pin(EP_ON_PIN, 1);
-    device_set_pin(AHT21_EN_PIN, 1);
-    device_set_pin(MPU6500_EN_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(500));
-}
+
 
 void device_system_init()
 {
     clock_event_group = xEventGroupCreate();
-    periph_init();
+    device_set_pin(EP_ON_PIN, 1);
+    device_set_pin(AHT21_EN_PIN, 1);
+    vTaskDelay(pdMS_TO_TICKS(500));
     read_data();
     device_gpio_init();
     I2C_init();
     wifi_init();
-    adc_reader_init();
+    mpu_init();
     AHT21_init();
     epaper_init();
-    mpu_init();
+    adc_reader_init();
 }
 
-
+#include "driver/gpio.h"
 void device_sleep(const unsigned sleep_time_ms)
 {
     AHT21_off();
     device_set_pin(EP_ON_PIN, 0);
     wifi_off();
-    esp_sleep_enable_timer_wakeup((uint64_t)sleep_time_ms * 1000); 
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_sleep_enable_timer_wakeup((uint64_t)sleep_time_ms * 1000);
     esp_sleep_enable_ext0_wakeup((gpio_num_t)GPIO_WAKEUP_PIN, 1);
     esp_light_sleep_start();
-    periph_init();
+    adc_reader_init();
+    device_set_pin(EP_ON_PIN, 1);
+    device_set_pin(AHT21_EN_PIN, 1);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    AHT21_init();
+    epaper_init();
 }

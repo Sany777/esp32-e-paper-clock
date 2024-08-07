@@ -20,12 +20,14 @@ enum Position{
 int mpu_init();
 int mpu_on();
 void mpu_off();
-int mpu_read_data();
+int mpu_measure();
 int mpu_get_x();
 int mpu_get_y();
 int mpu_get_temp();
 int mpu_get_rotate();
 const char* mpu_pos_to_str(int p);
+
+void intrp_init();
 
 
 #ifdef __cplusplus

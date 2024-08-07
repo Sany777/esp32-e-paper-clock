@@ -6,8 +6,11 @@ extern "C" {
 #endif
 
 void buzer_start();
-void start_signale(unsigned  delay, unsigned  count);
+void start_signale(unsigned  delay, unsigned  count, int loud);
 void buzer_stop();
+
+void buz_test(int freq_hz);
+
 
 #ifdef __cplusplus
 }

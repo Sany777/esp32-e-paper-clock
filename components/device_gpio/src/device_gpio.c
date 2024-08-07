@@ -1,11 +1,26 @@
 #include "device_gpio.h"
 
 #include "driver/gpio.h"
+#include "MPU6500.h"
+#include "epaper_adapter.h"
+
+#include "portmacro.h"
+#include "esp_sleep.h"
+#include "esp_log.h"
 
 
-#define BUT_NUM 5
 
-static int joystic_pin[BUT_NUM] = {GPIO_NUM_34,GPIO_NUM_35,GPIO_NUM_32,GPIO_NUM_33,GPIO_NUM_27};
+// 34 - UP, 27 - left, 35 - right, 32 - , 33 -center,
+enum butIndx{
+    // UP,
+    RIGHT,
+    CENTER,
+    LEFT,
+};
+
+static const int joystic_pin[] = {GPIO_NUM_35,GPIO_NUM_33,GPIO_NUM_27};
+static const int BUT_NUM = sizeof(joystic_pin)/sizeof(joystic_pin[0]);
+
 
 int device_set_pin(int pin, unsigned state)
 {
@@ -14,20 +29,19 @@ int device_set_pin(int pin, unsigned state)
 }
 
 
+
+
 void device_gpio_init()
 {
     for(int i=0; i<BUT_NUM; ++i){
         gpio_set_direction(joystic_pin[i], GPIO_MODE_INPUT);
         gpio_pulldown_en(joystic_pin[i]);
     }
-    gpio_config_t io_conf;
-    io_conf.intr_type = GPIO_INTR_POSEDGE;
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = (1ULL << GPIO_NUM_0);
-    io_conf.pull_down_en = 0;
-    io_conf.pull_up_en = 1;
-    gpio_config(&io_conf);
+     gpio_set_direction(GPIO_WAKEUP_PIN, GPIO_MODE_INPUT);
+    gpio_set_intr_type(GPIO_WAKEUP_PIN, GPIO_INTR_POSEDGE);
+    // gpio_pulldown_en(GPIO_WAKEUP_PIN);
 }
+
 
 
 int device_get_joystick_btn()

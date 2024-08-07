@@ -27,30 +27,26 @@ void app_main()
 
 
 
-    buzer_start();
     vTaskDelay(200);
 
     // start_ap();
     // start_server();
 
     while (1) {
+        mpu_measure();
+        int pos = mpu_get_rotate();
+        if(pos < 4){
+        epaper_set_rotate(pos);
+        }
+        buzer_start();
         float temperature = 0, humidity = 0;
         AHT21_read_data(&temperature, &humidity);
-        // epaper.printf(50,50,24, "%.2f°C", temperature);
-        // epaper.printf(10,80,24, "%.2f%%", humidity);
+        epaper_printf(10,10,24, "%.2f*C", temperature);
+        epaper_printf(10,50,24, "%.2f%%", humidity);
 
-        // mpu.read_data();
-        // int pos = mpu.get_rotate();
-        // if(pos < 4){
-        //     epaper.set_rotate(pos);
-        // }
-        // epaper.refresh();
-        adc_reader_get_voltage();
-        if(device_get_joystick_btn() != -1){
-            buzer_start();
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-
+        float volt = adc_reader_get_voltage();
+        epaper_printf(10,90,24, "%.2fV", volt);
+        device_sleep(59000);
     }
 
 }

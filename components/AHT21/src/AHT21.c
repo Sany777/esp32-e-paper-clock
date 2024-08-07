@@ -50,12 +50,12 @@ int AHT21_read_data(float *temperature, float *humidity)
     if(!is_init){
         CHECK_AND_RET_ERR(AHT21_on());
     }
-    uint8_t measure_data[] = {AHT21_CMD_TRIGGER, 0x33, 0x00};
+    uint8_t mpu_measure_data[] = {AHT21_CMD_TRIGGER, 0x33, 0x00};
     uint8_t data[6] = {0};
     uint8_t status;
     int wait_time = 0;
 
-    CHECK_AND_RET_ERR(I2C_write_bytes(AHT21_ADDR, measure_data, sizeof(measure_data)));
+    CHECK_AND_RET_ERR(I2C_write_bytes(AHT21_ADDR, mpu_measure_data, sizeof(mpu_measure_data)));
     do {
         vTaskDelay(pdMS_TO_TICKS(AHT21_CHECK_BUSY_DELAY_MS));
         CHECK_AND_RET_ERR(I2C_read_response(AHT21_ADDR, &status, sizeof(status)));

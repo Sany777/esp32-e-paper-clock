@@ -27,16 +27,37 @@ bool is_init;
 
 #define MPU6500_ADDR             0x68
 #define MPU6500_PWR_MGMT_1       0x6B
-#define MPU6500_SMPLRT_DIV       0x19
-#define MPU6500_CONFIG           0x1A
-#define MPU6500_GYRO_CONFIG      0x1B
-#define MPU6500_ACCEL_CONFIG     0x1C
+#define MPU6500_PWR_MGMT_2       0x6C
+#define CYCLE_BIT               (1<<5)
+#define DIS_XG                  (1<<2)
+#define DIS_YG                  (1<<1)
+#define DIS_ZG                  (1<<0)
+#define MPU6500_CONFIG          0x1A
+#define MPU6500_GYRO_CONFIG     0x1B
+#define MPU6500_ACCEL_CONFIG    0x1C
+#define MPU6500_ACCEL_CONFIG_2  0xD
+#define A_DLPFCFG_BIT           (1<<0)
+#define ACCEL_FCHOICE_B         (1<<1)
+#define MPU6500_LP_ACCEL_ODR    0x1E    // data 0 = 0.24Hz, 6 = 7.81Hz, 11 = 500 Hz
+#define MPU6500_WOM_THR         0x1F    // data 0bxxxxxxx
+#define INT_PIN_CFG             0x37
+// ACTL_BIT = 1 : intr = high
+#define ACTL_BIT                (1<<7)
+//OPEN_BIT = 1 : INT pin is configured as open drain. 0 – INT pin is configured as push-pull.
+#define OPEN_BIT                (1<<6)
+//0 – INT pin indicates interrupt pulse’s is width 50µs.
+#define INT_ENABLE              0x38
+#define LATCH_INT_EN_BIT        (1<<5)
+
+//1 – Wake on motion interrupt occurred
+#define WOM_EN_BIT              (1<<6)
+#define RAW_RDY_EN_BIT          (1<<0)
+
+#define ACCEL_INTEL_CTRL        0x69
+#define ACCEL_INTEL_EN_BIT      (1<<7)
+#define ACCEL_INTEL_MODE_BIT    (1<<6)
+
 #define MPU6500_ACCEL_XOUT_H     0x3B
-#define MPU6500_TEMP_OUT_H       0x41
-#define MPU6500_GYRO_XOUT_H      0x43
-#define MPU6500_INT_ENABLE       0x38
-#define MPU6500_PWR_MGMT_1_SLEEP 0x40
-#define MPU6500_PWR_MGMT_1_WAKEUP 0x00
 
 #define ACCEL_SCALE 16384.0 
 
@@ -47,25 +68,23 @@ int mpu_get_rotate(){return pos;}
 
 static int mpu_get_rotate_pos(int x, int y);
 
-int mpu_init() 
-{
-    // Wake up the MPU6500 since it starts in sleep mode
-    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_1, MPU6500_PWR_MGMT_1_WAKEUP));
-    // Set sample rate to 1kHz
-    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_SMPLRT_DIV, 0x07));
-    // Set gyro configuration (±250 degrees per second)
-    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_GYRO_CONFIG, 0x00));
-    // Set accelerometer configuration (±2g)
-    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_ACCEL_CONFIG, 0x00));
-    // Enable interrupt
-    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_INT_ENABLE, 0x01));
-    is_init = true;
+int mpu_init() {
+
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_1, 0));
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_2, A_DLPFCFG_BIT);
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, INT_ENABLE, 0x40)));
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, ACCEL_INTEL_CTRL, ACCEL_INTEL_EN_BIT|ACCEL_INTEL_MODE_BIT));
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_WOM_THR, 0x10));
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_LP_ACCEL_ODR, 2));  // 2 = 0.98 Hz
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_1, CYCLE_BIT));
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_CONFIG, 0x03));  // Пропускний фільтр 44 гц
+    CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_GYRO_CONFIG, 0x00)); 
     return ESP_OK;
 }
 
 const char* mpu_pos_to_str(int p)
 {
-    static const char* pos[] = {
+    static const char* pos_str[] = {
         "TURN_NORMAL",
         "TURN_RIGHT",
         "TURN_LEFT",
@@ -73,48 +92,39 @@ const char* mpu_pos_to_str(int p)
         "TURN_UP",
         "TURN_DOWN"
     };
-    return pos[p];
+    return pos_str[p];
 }
 
 int mpu_get_rotate_pos(int x, int y)
 {
-    if(y>-50 && y < 50){
-        if(x>-120 && x<-60)return TURN_DOWN;
-        if(x>50 && x<120)return TURN_UP;
-        if(x>-25 && x<25)return TURN_LEFT;
-        if(x>150 || x<-150)return TURN_RIGHT;
-    }
-    if(y<-55){
-        return TURN_UPSIDE_DOWN;
-    }
+    if(y<38 && y>=23 && x>-10 && x<=-1)return TURN_UP;
+    if(y>=18 && y<= 30 && x<=-37 && x>=-43)return TURN_DOWN;
+    if(y>=18 && y<= 26 && x<=-13 && x>= -24)return TURN_LEFT;
+    if(y>=30 && y<=42 && x<=-29 && x>=-43)return TURN_RIGHT;
+    if(y>=8 && y<=12 && x>=-31 && x<=-22)return TURN_UPSIDE_DOWN;
     return TURN_NORMAL;
 }
 
-int mpu_read_data() 
+int mpu_measure() 
 {
-    if(!is_init){
-        CHECK_AND_RET_ERR(mpu_on());
-    }
     uint8_t data[14];
-    
-    // Read 14 bytes from MPU6500 starting from the accelerometer XOUT high register
     CHECK_AND_RET_ERR(I2C_read_reg(MPU6500_ADDR, MPU6500_ACCEL_XOUT_H, data, sizeof(data)));
-    // Process the received data
-    accel_x = ((data[0] << 8) | data[1]) ;
-    accel_y = ((data[2] << 8) | data[3]);
-    accel_z = ((data[4] << 8) | data[5]);
-    temperature = ((data[6] << 8) | data[7]);
-    gyro_x = ((data[8] << 8) | data[9]);
-    gyro_y = ((data[10] << 8) | data[11]);
-    gyro_z = ((data[12] << 8) | data[13]);
+    accel_x = (uint16_t)((data[0] << 8) | data[1]) ;
+    accel_y = (uint16_t)((data[2] << 8) | data[3]);
+    accel_z = (uint16_t)((data[4] << 8) | data[5]);
+    temperature = (uint16_t)((data[6] << 8) | data[7]);
+    gyro_x = (uint16_t)((data[8] << 8) | data[9]);
+    gyro_y = (uint16_t)((data[10] << 8) | data[11]);
+    gyro_z = (uint16_t)((data[12] << 8) | data[13]);
 
-    float x =     accel_x / ACCEL_SCALE;
-    float y =     accel_y / ACCEL_SCALE;
-    float z =     accel_z / ACCEL_SCALE;
+    float x =   accel_x / ACCEL_SCALE;
+    float y =   accel_y / ACCEL_SCALE;
+    float z =   accel_z / ACCEL_SCALE;
 
     y_angle = atan2f(y, sqrtf(x * x + z * z)) * (180.0 / M_PI);
     x_angle = atan2f(-x, z) * (180.0 / M_PI);
     pos = mpu_get_rotate_pos(x_angle, y_angle);
+    ESP_LOGI("", "y_angle: %d, x_angle:%d - %s\n", y_angle, x_angle, mpu_pos_to_str(pos));
     return ESP_OK;
 }
 
