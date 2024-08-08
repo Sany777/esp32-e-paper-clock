@@ -48,11 +48,9 @@ bool is_init;
 //0 – INT pin indicates interrupt pulse’s is width 50µs.
 #define INT_ENABLE              0x38
 #define LATCH_INT_EN_BIT        (1<<5)
-
 //1 – Wake on motion interrupt occurred
 #define WOM_EN_BIT              (1<<6)
 #define RAW_RDY_EN_BIT          (1<<0)
-
 #define ACCEL_INTEL_CTRL        0x69
 #define ACCEL_INTEL_EN_BIT      (1<<7)
 #define ACCEL_INTEL_MODE_BIT    (1<<6)
@@ -64,12 +62,12 @@ bool is_init;
 int mpu_get_x(){return x_angle;}
 int mpu_get_y(){return y_angle;}
 int mpu_get_temp(){return temperature;}
-int mpu_get_rotate(){return pos;}
+int mpu_get_rotate(){mpu_measure(); return pos;}
 
 static int mpu_get_rotate_pos(int x, int y);
 
-int mpu_init() {
-
+int mpu_init() 
+{
     CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_1, 0));
     CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, MPU6500_PWR_MGMT_2, A_DLPFCFG_BIT);
     CHECK_AND_RET_ERR(I2C_write_reg(MPU6500_ADDR, INT_ENABLE, 0x40)));

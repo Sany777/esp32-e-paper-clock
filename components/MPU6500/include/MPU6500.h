@@ -27,8 +27,6 @@ int mpu_get_temp();
 int mpu_get_rotate();
 const char* mpu_pos_to_str(int p);
 
-void intrp_init();
-
 
 #ifdef __cplusplus
 }

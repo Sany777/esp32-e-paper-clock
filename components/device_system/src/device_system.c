@@ -212,7 +212,7 @@ void device_system_init()
     adc_reader_init();
 }
 
-#include "driver/gpio.h"
+
 void device_sleep(const unsigned sleep_time_ms)
 {
     AHT21_off();
@@ -222,7 +222,6 @@ void device_sleep(const unsigned sleep_time_ms)
     esp_sleep_enable_timer_wakeup((uint64_t)sleep_time_ms * 1000);
     esp_sleep_enable_ext0_wakeup((gpio_num_t)GPIO_WAKEUP_PIN, 1);
     esp_light_sleep_start();
-    adc_reader_init();
     device_set_pin(EP_ON_PIN, 1);
     device_set_pin(AHT21_EN_PIN, 1);
     vTaskDelay(pdMS_TO_TICKS(500));

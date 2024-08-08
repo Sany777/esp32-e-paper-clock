@@ -29,17 +29,14 @@ int device_set_pin(int pin, unsigned state)
 }
 
 
-
-
 void device_gpio_init()
 {
     for(int i=0; i<BUT_NUM; ++i){
         gpio_set_direction(joystic_pin[i], GPIO_MODE_INPUT);
         gpio_pulldown_en(joystic_pin[i]);
     }
-     gpio_set_direction(GPIO_WAKEUP_PIN, GPIO_MODE_INPUT);
+    gpio_set_direction(GPIO_WAKEUP_PIN, GPIO_MODE_INPUT);
     gpio_set_intr_type(GPIO_WAKEUP_PIN, GPIO_INTR_POSEDGE);
-    // gpio_pulldown_en(GPIO_WAKEUP_PIN);
 }
 
 
