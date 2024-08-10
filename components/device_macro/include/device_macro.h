@@ -1,5 +1,5 @@
-#ifndef device_macro_H
-#define device_macro_H
+#ifndef DEVICE_MACRO_H
+#define DEVICE_MACRO_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,4 +51,4 @@ extern "C" {
 
 
 
-#endif // device_macro_H
+#endif 

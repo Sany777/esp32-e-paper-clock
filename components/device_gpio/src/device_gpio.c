@@ -1,5 +1,6 @@
 #include "device_gpio.h"
 
+#include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
 #include "MPU6500.h"
 #include "epaper_adapter.h"
@@ -9,14 +10,8 @@
 #include "esp_log.h"
 
 
-
 // 34 - UP, 27 - left, 35 - right, 32 - , 33 -center,
-enum butIndx{
-    // UP,
-    RIGHT,
-    CENTER,
-    LEFT,
-};
+
 
 static const int joystic_pin[] = {GPIO_NUM_35,GPIO_NUM_33,GPIO_NUM_27};
 static const int BUT_NUM = sizeof(joystic_pin)/sizeof(joystic_pin[0]);
@@ -45,8 +40,9 @@ int device_get_joystick_btn()
 {
     for(int i=0; i<BUT_NUM; ++i){
         if(gpio_get_level(joystic_pin[i])){
+            while(gpio_get_level(joystic_pin[i])) vTaskDelay(10);
             return i;
         }
     }
-    return -1;
+    return NO_IN_DATA;
 }

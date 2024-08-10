@@ -22,6 +22,15 @@ int device_set_pin(int pin, unsigned state);
 #define EP_ON_PIN           (22)
 
 
+
+enum CMD{
+    BUT_RIGHT,
+    BUT_PRESS,
+    BUT_LEFT,
+    NO_IN_DATA = -1,
+};
+
+
 enum PinoutInfo{
     EP_CS       = 4,
     EP_DC       = 16,
@@ -29,7 +38,6 @@ enum PinoutInfo{
     EP_BUSY     = 5,
     EP_SDA      = 15,
     EP_SCL      = 14,
-
 };
 
 

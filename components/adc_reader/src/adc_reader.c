@@ -10,7 +10,7 @@
 
 
 
-#define ADC_CHANNEL ADC2_CHANNEL_4  
+#define ADC_CHANNEL ADC2_CHANNEL_4  // GPIO13 (ESP32)
 #define ADC_ATTEN ADC_ATTEN_DB_0     
 #define ADC_MAX_VALUE 4095          // 12-bit ADC maximum value
 #define VREF 1100 

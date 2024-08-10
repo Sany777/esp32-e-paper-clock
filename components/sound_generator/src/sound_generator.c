@@ -74,7 +74,7 @@ void start_signale()
     if(_delay == 0){
         _delay = 100;
     }
-    periodic_task_in_isr_create(signale_stop, _delay/2, 1);
+    periodic_task_isr_create(signale_stop, _delay/2, 1);
 }
 
 void start_signale_series(unsigned delay, unsigned number, unsigned loud)
@@ -83,7 +83,7 @@ void start_signale_series(unsigned delay, unsigned number, unsigned loud)
     _delay = delay;
     start_signale();
     if(number>1){
-        periodic_task_in_isr_create(start_signale, _delay, number-1);
+        periodic_task_isr_create(start_signale, _delay, number-1);
     }
 }
 
@@ -115,7 +115,7 @@ static void start_pwm()
     if(buzzer_work){
         signale_stop();
     }
-    if(_duty>= 100) _duty = DEFAULT_DUTY;
+    if(_duty>= 100 || _duty == 0) _duty = DEFAULT_DUTY;
     ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, _duty);
     ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);
     buzzer_work = true;

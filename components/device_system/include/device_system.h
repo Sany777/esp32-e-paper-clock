@@ -30,6 +30,7 @@ enum Bits{
     BIT_IS_TIME             = (1<<11),
     BIT_SERVER_RUN          = (1<<12),
     BIT_IS_AP_CLIENT        = (1<<13),
+    BIT_IS_PROCCESS         = (1<<14),
     STORED_FLAGS = (BIT_SOUNDS_ALLOW|BIT_AUTO_OFFSET|BIT_STA_DISABLE),
     NUMBER_STORED_FLAGS = 3
 };
@@ -47,7 +48,6 @@ typedef struct {
 
 
 
-unsigned get_notif_num(unsigned *);
 int device_set_pwd(const char *str);
 int device_set_ssid(const char *str);
 int device_set_city(const char *str);

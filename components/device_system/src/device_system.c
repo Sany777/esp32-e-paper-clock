@@ -135,6 +135,8 @@ unsigned device_wait_bits(unsigned bits)
     return xEventGroupWaitBits(clock_event_group,(EventBits_t) (bits),pdFALSE,pdFALSE,10000/portTICK_PERIOD_MS);
 }
 
+
+
 unsigned *device_get_schema()
 {
     return main_data.schema;

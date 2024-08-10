@@ -16,43 +16,39 @@
 #include "epaper_adapter.h"
 
 
+void set_screen()
+{
 
+}
 
 void app_main() 
 {
     vTaskDelay(1000/portTICK_PERIOD_MS);
     
     device_system_init();
-
-
-
-
+    epaper_clear(UNCOLORED);
     vTaskDelay(200);
+    
 
-    // start_ap();
-    // start_server();
-    set_sound_loud(80);
-    set_sound_delay(50);
-    for(int i=100; i<6000; i+=1000){
-        set_sound_freq(i);
-        start_signale_series(50, 100, 40);
-        ESP_LOGI("", "%d\n", i);
-        vTaskDelay(1000/portTICK_PERIOD_MS);
-    }
-    while (1) {
-        
-        float temperature = 0, humidity = 0;
-        AHT21_read_data(&temperature, &humidity);
-        epaper_printf(10,10,24, "%.2f*C", temperature);
-        epaper_printf(10,50,24, "%.2f%%", humidity);
+    while (1) 
+    {
 
         int pos = mpu_get_rotate();
-        if(pos < 4){
+        if(pos <4){
             epaper_set_rotate(pos);
         }
+        start_signale();
+        float temperature = 0, humidity = 0;
+        AHT21_read_data(&temperature, &humidity);
+        epaper_printf(10,10,24, COLORED, "%.2f*C", temperature);
+        epaper_printf(10,50,24, UNCOLORED, "%.2f%%", humidity);
+        draw_horizontal_line(10,150, 75, 5, COLORED);
         float volt = adc_reader_get_voltage();
-        epaper_printf(10,90,24, "%.2fV", volt);
-        device_sleep(59000);
+        epaper_printf(10,90,24,COLORED, "%.2fV", volt);
+        draw_circle(100, 100, 15, COLORED, false);
+        draw_circle(100, 100, 10, COLORED, true);
+        epaper_display();
+        device_sleep(10000);
     }
 
 }

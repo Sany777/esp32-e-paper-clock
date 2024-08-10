@@ -15,7 +15,7 @@
 #include "additional_functions.h"
 #include "string.h"
 #include "device_macro.h"
-
+#include "wifi_service.h"
 #include "device_system.h"
 
 
@@ -247,7 +247,6 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     unsigned *schema = device_get_schema();
     unsigned *notify = device_get_notif();
     const size_t notif_data_str_size = get_notif_num(schema);
-    const size_t notif_data_num = get_notif_size(schema);
     notif_data_str = (char *)malloc(notif_data_str_size+1);
     if(notif_data_str == NULL){
         SEND_REQ_ERR(req, MES_NO_MEMORY, label_1);
@@ -398,7 +397,10 @@ int start_server()
     if(server != NULL) return ESP_FAIL;
     server_buf = (char *)malloc(BUF_SIZE); 
     if(server_buf == NULL) return ESP_ERR_NO_MEM;
-
+    if( !(device_get_state()&BIT_IS_AP_MODE )){
+        start_ap();
+        device_wait_bits(BIT_IS_AP_MODE);
+    }
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 12;
     config.uri_match_fn = httpd_uri_match_wildcard;
@@ -505,7 +507,6 @@ int start_server()
     };
     httpd_register_uri_handler(server, &redir_uri);
     int timeout = 0;
-    ESP_LOGI("","server start");
     bool open_sesion = false;
     device_set_state(BIT_SERVER_RUN);
     unsigned bits;
@@ -525,8 +526,11 @@ int start_server()
     }
     device_commit_changes();
     deinit_server();
-    ESP_LOGI("","stop start");
     return ESP_OK;
 }
 
 
+void stop_server()
+{
+    device_set_state(BIT_SERVER_RUN);
+}
