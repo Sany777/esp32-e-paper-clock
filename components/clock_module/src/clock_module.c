@@ -13,16 +13,20 @@
 #define INTERVAL_10_HOUR   (1000*60*60*10)
 #define INTERVAL_1_MIN      (1000*60*1)
 
+int get_time_in_min()
+{
+    struct tm* tinfo = get_time_tm();
+    return tinfo->tm_hour*60 + tinfo->tm_min;
+}
 
 struct tm* get_time_tm(void)
 {
     static struct tm cur, *t;
     time_t time_now;
     time(&time_now);
-    t = localtime(&time_now);
-    memcpy(&cur, t, sizeof(struct tm));
-    return &cur;
+    return localtime(&time_now);
 }
+
 
 void set_time_ms(long long time_ms)
 {
@@ -92,20 +96,27 @@ void stop_sntp()
 // %y: Останні дві цифри року (00 до 99)
 // %Y: Повний рік (2023)
 // %Z: Часовий пояс (UTC, GMT, ...)
-int snprintf_time(char *strftime_buf, int buf_size, const char *format)
+const char* snprintf_time(const char *format)
 {
-    if(!(device_get_state()&BIT_SNTP_OK)){
+    const char *err_res = "Err";
+    static char text_buf[100];
+    unsigned bits = device_get_state();
+    if(!(bits&BIT_IS_TIME)){
+        if( !( bits&BIT_IS_STA_CONNECTION) )
+            return err_res;
         init_sntp();
-        if(! (device_wait_bits(BIT_IS_TIME|BIT_SNTP_OK)&BIT_IS_TIME ))return ESP_FAIL;
-    }
+        bits = device_wait_bits(BIT_IS_TIME);
+        if(! (bits&BIT_IS_TIME ))
+            return err_res;
+    } 
     struct tm *timeinfo = get_time_tm();
-    if(timeinfo->tm_year < (2016 - 1900))return ESP_FAIL;
-    strftime(strftime_buf, buf_size, format, timeinfo);
-    return ESP_OK;
+    strftime(text_buf, sizeof(text_buf), format, timeinfo);
+    return text_buf;
 }
 
 
 void set_system_time(long long sec)
 {
+    device_set_state(BIT_IS_TIME);
     sntp_set_system_time(sec, 0);
 }

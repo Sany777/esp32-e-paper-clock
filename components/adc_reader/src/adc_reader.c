@@ -4,7 +4,7 @@
 #include "driver/adc.h"
 #include "esp_log.h"
 #include "adc_reader.h"
-#include "device_gpio.h"
+#include "device_system.h"
 
 #include "freertos/FreeRTOS.h"
 
@@ -33,6 +33,5 @@ float adc_reader_get_voltage(void)
     int adc_value = 0;
     adc2_get_raw(ADC_CHANNEL,ADC_WIDTH_BIT_12, &adc_value);
     float voltage = (((float)adc_value * 10000) / (ADC_MAX_VALUE*1280)) * (VREF / 1000.0);
-    ESP_LOGI(TAG, "Voltage: %.2fV, adc: %d", voltage, adc_value);
     return voltage;
 }

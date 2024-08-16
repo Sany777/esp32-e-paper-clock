@@ -1,0 +1,4 @@
+idf_component_register(SRC_DIRS "src"
+                        INCLUDE_DIRS "include"
+                        PRIV_REQUIRES additional_functions MPU6500 epaper_adapter periodic_task clock_module wifi_service setting_server device_system device_system clock_http_client sound_generator AHT21 adc_reader driver
+                    ) 

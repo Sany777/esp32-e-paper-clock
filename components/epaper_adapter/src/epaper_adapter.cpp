@@ -8,20 +8,21 @@
 #include "cstring"
 #include "cstdio"
 
+#include "esp_log.h"
 
-#define SCREEN_WIDTH    200
 #define SCREEN_HEIGHT   200
-#define MAX_SYMB        100
-#define FORCE_UPDATE_COUNT_NUM 10
-static Paint *paint;
-static Epd epd;
-#define SCREEN_BUF_SIZE  (SCREEN_WIDTH * SCREEN_HEIGHT / 8)
-bool is_rotate;
+#define SCREEN_WIDTH    200
 
-static unsigned char screen[SCREEN_BUF_SIZE];
-static char text_buf[MAX_SYMB];
+#define FORCE_UPDATE_COUNT_NUM 5
+static Paint *paint;
+static Epaper epd;
+
+static unsigned char screen[SCREEN_WIDTH * SCREEN_HEIGHT/8];
+static char text_buf[150];
 static int rotate;
-static int el_color, back_color;
+
+
+
 
 static sFONT* epaper_get_font(int font_num);
 
@@ -30,8 +31,6 @@ void epaper_init()
     if(!paint){
         rotate = ROTATE_0;
         paint = new Paint(screen, epd.width, epd.height);
-        back_color = UNCOLORED;
-        paint->SetRotate(rotate);
         epd.LDirInit();
     }
 }
@@ -51,14 +50,19 @@ static sFONT* epaper_get_font(int font_num)
     return &Font20;
 }
 
+void epaper_print_str(int hor, int ver, int font_size, color_t colored, const char *str)
+{ 
+    sFONT * font = epaper_get_font(font_size);
+    paint->DrawStringAt(hor, ver, str, font, colored);
+}
 
-void epaper_printf(int hor, int ver, int font_size, int colored, const char *format, ...)
+void epaper_printf(int hor, int ver, int font_size, color_t colored, const char *format, ...)
 {
     va_list args;
     va_start (args, format);
-    vsnprintf (text_buf, MAX_SYMB, format, args);
+    vsnprintf (text_buf, sizeof(text_buf), format, args);
     va_end (args);
-    paint->DrawStringAt(hor, ver, text_buf, epaper_get_font(font_size), colored);
+    epaper_print_str(hor, ver, font_size, colored, text_buf);
 }
 
 void epaper_refresh()
@@ -66,33 +70,18 @@ void epaper_refresh()
     epd.DisplayFrame();
 }
 
-void epaper_display()
-{
-    static int update_count;
-    epd.WaitUntilIdle();
-    if(is_rotate || update_count>FORCE_UPDATE_COUNT_NUM){
-        epaper_display_all();
-        update_count = 0;
-    } else {
-        epaper_display_part();
-        update_count += 1;
-    }
-}
+
 
 void epaper_display_all()
 {
-    epd.Clear();
     epd.WaitUntilIdle();
     epd.Display(screen);
     epd.WaitUntilIdle();
-    is_rotate = false;
 }
 
 void epaper_clear(int colored)
 {
-    back_color = colored;
     memset(screen, colored ? 0xff : 0, sizeof(screen));
-    epd.Clear();
 }
 
 
@@ -129,19 +118,11 @@ void draw_vertical_line(int ver_0, int ver_1, int hor, int width, int colored)
     paint->DrawFilledRectangle(hor, ver_0, hor+width, ver_1, colored);
 }
 
-void epaper_set_rotate(int cur_rotate)
+
+void epaper_set_rotate(int rotate)
 {
-    if(rotate != cur_rotate){
-        paint->Clear(back_color);
-        rotate = cur_rotate;
-        paint->SetRotate(rotate);
-        int new_width = paint->GetHeight();
-        int new_height = paint->GetWidth();
-        paint->SetHeight(new_height);
-        paint->SetWidth(new_width);
-        is_rotate = true;
-        epd.WaitUntilIdle();
-    }
+    paint->SetRotate(rotate);       
+    epd.WaitUntilIdle();
 }
 
 

@@ -15,11 +15,11 @@ void periodic_task_remove(periodic_func_in_isr_t func);
 int periodic_task_isr_create(periodic_func_in_isr_t func,
                             unsigned delay_ms, 
                             unsigned count);
-void task_runner_start(void);
+void device_timer_start(void);
 void task_runner_stop(void);
 void task_runner_deinit(void);
-
-
+void start_timer();
+long long get_timer_ms();
 
 
 

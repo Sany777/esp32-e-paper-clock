@@ -2,7 +2,7 @@
 
 #include "driver/i2c.h"
 #include "device_macro.h"
-#include "device_gpio.h"
+#include "device_system.h"
 
 static bool init;
 

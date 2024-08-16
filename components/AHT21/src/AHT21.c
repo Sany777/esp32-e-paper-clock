@@ -5,7 +5,7 @@
 #include "freertos/task.h"
 #include "i2c_module.h"
 #include "device_macro.h"
-#include "device_gpio.h"
+#include "device_system.h"
 
 
 
@@ -47,9 +47,6 @@ int AHT21_init()
 
 int AHT21_read_data(float *temperature, float *humidity) 
 {
-    if(!is_init){
-        CHECK_AND_RET_ERR(AHT21_on());
-    }
     uint8_t mpu_measure_data[] = {AHT21_CMD_TRIGGER, 0x33, 0x00};
     uint8_t data[6] = {0};
     uint8_t status;
@@ -69,20 +66,10 @@ int AHT21_read_data(float *temperature, float *humidity)
     CHECK_AND_RET_ERR(I2C_read_bytes(AHT21_ADDR, data, sizeof(data)));
     uint32_t raw_humidity = ((uint32_t)data[1] << 12) | ((uint32_t)data[2] << 4) | ((uint32_t)data[3] >> 4);
     uint32_t raw_temperature = (((uint32_t)data[3] & 0x0F) << 16) | ((uint32_t)data[4] << 8) | (uint32_t)data[5];
-    *humidity = ((float)raw_humidity / 1048576.0) * 100.0;
-    *temperature = ((float)raw_temperature / 1048576.0) * 200.0 - 50.0;
+    if(humidity)
+        *humidity = ((float)raw_humidity / 1048576.0) * 100.0;
+    if(temperature)
+        *temperature = ((float)raw_temperature / 1048576.0) * 200.0 - 50.0;
     return ESP_OK;
 }
 
-void AHT21_off()
-{
-    device_set_pin(AHT21_EN_PIN, 0);
-    is_init = false;
-}
-
-int AHT21_on()
-{
-    device_set_pin(AHT21_EN_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(300));
-    return AHT21_init();
-}

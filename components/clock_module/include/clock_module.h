@@ -10,10 +10,10 @@ struct tm* get_time_tm(void);
 void init_sntp();
 void stop_sntp();
 
-int snprintf_time(char *strftime_buf, int buf_size, const char *format);
+const char* snprintf_time(const char *format);
 void set_system_time(long long sec);
 void set_time_ms(long long time_ms);
-
+int get_time_in_min();
 
 #ifdef __cplusplus
 }
