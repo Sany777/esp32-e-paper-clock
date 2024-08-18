@@ -11,7 +11,7 @@ extern "C" {
 
 
 
-void set_wifi_sta_config(char *ssid, char *pwd);
+int set_wifi_sta_config(char *ssid, char *pwd);
 int connect_sta();
 int start_ap();
 int wifi_init(void) ;

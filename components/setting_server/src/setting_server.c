@@ -518,7 +518,7 @@ int start_server()
             }
         } else if(bits&BIT_IS_AP_CONNECTION){
             open_sesion = true;
-        } else if(timeout>200){
+        } else if(timeout>100){
             stop_server();
         } else {
             timeout += 1;

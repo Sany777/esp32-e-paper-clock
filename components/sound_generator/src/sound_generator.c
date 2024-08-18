@@ -54,7 +54,7 @@ static void IRAM_ATTR continue_signale()
 
 void start_single_signale(unsigned delay, unsigned freq)
 {
-    start_signale_series(delay, 1, freq, 50);
+    start_signale_series(delay, 1, freq, 60);
 }
 
 void alarm()

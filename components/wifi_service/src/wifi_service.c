@@ -18,6 +18,10 @@
 #include "setting_server.h"
 #include "device_macro.h"
 
+#include "string.h"
+#define MIN_WIFI_PWD_LEN  8
+#define MIN_WIFI_SSID_LEN 1 
+
 
 wifi_mode_t wifi_mode;
 
@@ -50,8 +54,9 @@ static void sta_handler(void* arg, esp_event_base_t event_base, int32_t event_id
         }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         retry_num = 0;
-        device_set_state(BIT_IS_STA_CONNECTION|BIT_STA_CONF_OK);
+        device_set_state(BIT_IS_STA_CONNECTION);
         device_clear_state(BIT_ERR_SSID_NO_FOUND);
+
     }
 }
 
@@ -98,12 +103,18 @@ int wifi_init(void)
 }
 
 
-void set_wifi_sta_config(char *ssid, char *pwd)
+int set_wifi_sta_config(char *ssid, char *pwd)
 {
-    memset(&wifi_sta_config, 0, sizeof(wifi_sta_config));
-    strncpy((char *)wifi_sta_config.sta.ssid, ssid, 32);
-    strncpy((char *)wifi_sta_config.sta.password, pwd, 32);
-    wifi_sta_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    if(strlen(ssid) >= MIN_WIFI_SSID_LEN
+            && strlen(pwd) >= MIN_WIFI_PWD_LEN){
+        memset(&wifi_sta_config, 0, sizeof(wifi_sta_config));
+        strncpy((char *)wifi_sta_config.sta.ssid, ssid, 32);
+        strncpy((char *)wifi_sta_config.sta.password, pwd, 32);
+        wifi_sta_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+        device_set_state(BIT_STA_CONF_OK);
+        return ESP_OK;
+    }
+    return ESP_FAIL;
 }
 
 
@@ -118,9 +129,12 @@ void set_wifi_ap_config(char *ssid, char *pwd)
     wifi_ap_config.ap.pmf_cfg.required = false;
 }
 
+
+
 int connect_sta()
 {
-    if(! (device_get_state()&BIT_IS_WIFI_INIT) ){
+    unsigned bits = device_get_state();
+    if(! (bits&BIT_IS_WIFI_INIT) ){
         CHECK_AND_RET_ERR(wifi_init());
     }
     if (wifi_mode == WIFI_MODE_STA){
@@ -133,6 +147,7 @@ int connect_sta()
             netif = esp_netif_create_default_wifi_sta();
             if(netif == NULL) return ESP_FAIL;
         }
+
         CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_START, &sta_handler, NULL));
         CHECK_AND_RET_ERR(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sta_handler, NULL));
         CHECK_AND_RET_ERR(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &sta_handler, NULL));
@@ -149,7 +164,8 @@ int connect_sta()
                                                 |WIFI_PROTOCOL_LR));
 #endif
     const size_t ssid_len = strnlen((char*)wifi_sta_config.sta.ssid, sizeof(wifi_sta_config.sta.ssid));
-    if(ssid_len == 0 || ssid_len == sizeof(wifi_sta_config.sta.ssid)){
+    const size_t pwd_len = strnlen((char*)wifi_sta_config.sta.password, sizeof(wifi_sta_config.sta.password));
+    if(ssid_len == 0 || ssid_len == sizeof(wifi_sta_config.sta.ssid) || pwd_len < MIN_WIFI_PWD_LEN){
         set_wifi_sta_config(CONFIG_WIFI_STA_DEBUG_SSID, CONFIG_WIFI_STA_DEBUG_PASSWORD);
     }
     CHECK_AND_RET_ERR(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config));
@@ -192,7 +208,7 @@ void wifi_stop()
 {
     device_clear_state(BIT_IS_STA_CONNECTION|BIT_IS_AP_CONNECTION|BIT_IS_AP_MODE|BIT_STA_CONF_OK);
     esp_wifi_stop();
-    vTaskDelay(500);
+    vTaskDelay(500/portTICK_PERIOD_MS);
     if (wifi_mode == WIFI_MODE_AP){
         esp_event_handler_unregister(WIFI_EVENT, WIFI_EVENT_AP_STADISCONNECTED, &ap_handler);
         esp_event_handler_unregister(WIFI_EVENT, WIFI_EVENT_AP_STACONNECTED, &ap_handler);

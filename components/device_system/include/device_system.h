@@ -21,9 +21,9 @@ enum Bits{
     BIT_STA_DISABLE         = (1<<2),
     BIT_STA_CONF_OK         = (1<<3),
     BIT_SNTP_OK             = (1<<4),
-    BIT_OPENWEATHER_OK      = (1<<5),
+    BIT_BROADCAST_OK        = (1<<5),
     BIT_ERR_SSID_NO_FOUND   = (1<<6),
-    BIT_STA_TRY_CONNECT     = (1<<7),
+    BIT_WAIT_MOVING         = (1<<7),
     BIT_IS_AP_MODE          = (1<<8),
     BIT_IS_AP_CONNECTION    = (1<<9),
     BIT_IS_STA_CONNECTION   = (1<<10),
@@ -31,16 +31,18 @@ enum Bits{
     BIT_IS_TIME             = (1<<12),
     BIT_SERVER_RUN          = (1<<13),
     BIT_IS_AP_CLIENT        = (1<<14),
-    BIT_WAIT_PROCCESS         = (1<<15),
+    BIT_WAIT_PROCCESS       = (1<<15),
 
-    BIT_START_SERVER        = (1<<16),
-    BIT_START_OPENWEATHER   = (1<<17),
-    BIT_START_SNTP          = (1<<18),
-    BIT_START_MPU_DATA_UPDATE  = (1<<19),
-    BIT_START_UPDATE_SCR    = (1<<20),
-    BIT_NEW_DATA            = (1<<21),
-    STORED_FLAGS = (BIT_SOUNDS_DISABLE|BIT_OFFSET_DISABLE|BIT_STA_DISABLE),
-    NUMBER_STORED_FLAGS = 3
+    BIT_START_SERVER            = (1<<16),
+    BIT_UPDATE_BROADCAST_DATA   = (1<<17),
+    BIT_INIT_SNTP               = (1<<18),
+    BIT_START_MPU_DATA_UPDATE   = (1<<19),
+    BIT_BUT_INPUT               = (1<<20),
+    BIT_NEW_DATA                = (1<<21),
+    BIT_START_STA_WIFI          = (1<<22), // always try connect to sta
+    BIT_UPDATE_WIFI_CONF        = (1<<23),
+    STORED_FLAGS                = (BIT_SOUNDS_DISABLE|BIT_OFFSET_DISABLE|BIT_STA_DISABLE),
+    NUMBER_STORED_FLAGS         = 3
 };
 
 typedef struct {
@@ -81,7 +83,7 @@ enum CMD{
     BUT_RIGHT,
     BUT_PRESS,
     BUT_LEFT,
-    NO_INP_DATA = -1,
+    NO_DATA = -1,
 };
 
 

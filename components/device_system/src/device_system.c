@@ -48,8 +48,11 @@ unsigned get_notif_num(unsigned *schema)
 
 int device_set_pwd(const char *str)
 {
+    device_clear_state(BIT_STA_CONF_OK);
     const int len = strnlen(str, MAX_STR_LEN);
-    if(len >= MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
+    if(len >= MAX_STR_LEN){
+        return ESP_ERR_INVALID_SIZE;
+    }
     memcpy(main_data.pwd, str, len);
     main_data.pwd[len] = 0;
     changes_main_data = true;
@@ -58,6 +61,7 @@ int device_set_pwd(const char *str)
 
 int device_set_ssid(const char *str)
 {
+    device_clear_state(BIT_STA_CONF_OK);
     const int len = strnlen(str, MAX_STR_LEN);
     if(len == MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
     memcpy(main_data.ssid, str, len);
@@ -134,13 +138,13 @@ unsigned IRAM_ATTR device_clear_state(unsigned bits)
     return xEventGroupClearBits(clock_event_group, (EventBits_t) (bits));
 }
 
-unsigned device_wait_bits_untile(unsigned bits, unsigned time_ms)
+unsigned device_wait_bits_untile(unsigned bits, unsigned time_ticks)
 {
     return xEventGroupWaitBits(clock_event_group,
                                 (EventBits_t) (bits),
                                 pdFALSE,
                                 pdFALSE,
-                                time_ms);
+                                time_ticks);
 }
 
 
@@ -244,12 +248,10 @@ void device_system_init()
 static const int joystic_pin[] = {GPIO_NUM_35,GPIO_NUM_33,GPIO_NUM_27};
 static const int BUT_NUM = sizeof(joystic_pin)/sizeof(joystic_pin[0]);
 
-static int timeout;
+
 static void IRAM_ATTR send_sig_update_pos()
 {
-    set_bit_from_isr(BIT_START_MPU_DATA_UPDATE);
-    clear_bit_from_isr(BIT_WAIT_PROCCESS);
-    timeout = 0;
+    clear_bit_from_isr(BIT_WAIT_MOVING);
 }
 
 void IRAM_ATTR set_bit_from_isr(unsigned bits)
@@ -267,13 +269,8 @@ void IRAM_ATTR clear_bit_from_isr(unsigned bits)
 
 void IRAM_ATTR gpio_isr_handler(void* arg)
 {
-    if(timeout < 10){
-        timeout += 1;
-        periodic_task_isr_create(send_sig_update_pos, 200, 1);
-        set_bit_from_isr(BIT_WAIT_PROCCESS);
-    } else {
-        timeout = 0;
-    }
+    set_bit_from_isr(BIT_WAIT_MOVING);
+    periodic_task_isr_create(send_sig_update_pos, 300, 1);
 }
 
 void setup_gpio_interrupt()
@@ -307,21 +304,25 @@ void device_gpio_init()
     setup_gpio_interrupt();
 }
 
-
-
+static void end_but_input()
+{
+    clear_bit_from_isr(BIT_BUT_INPUT);
+    set_bit_from_isr(BIT_NEW_DATA);
+}
 
 int device_get_joystick_btn()
 {
-    int timeout = 20;
+    int timeout = 10;
     for(int i=0; i<BUT_NUM; ++i){
         if(gpio_get_level(joystic_pin[i])){
-            if( !(device_get_state()&BIT_SOUNDS_DISABLE) ){
-                start_single_signale(50, 700);
-            }
-            // while(gpio_get_level(joystic_pin[i]) && timeout--) 
-            //     vTaskDelay(10);
+            device_set_state(BIT_BUT_INPUT);
+            do{
+                timeout -= 1;
+                vTaskDelay(100/portTICK_PERIOD_MS);
+                periodic_task_isr_create(end_but_input, 5000, 1);
+            }while(gpio_get_level(joystic_pin[i]) && timeout);
             return i;
         }
     }
-    return NO_INP_DATA;
+    return NO_DATA;
 }

@@ -102,9 +102,9 @@ void get_weather(const char *city, const char *api_key)
 //     //                                     BIT_PROCESS,   
 //     //                                     false, false, 
 //     //                                     WAIT_PROCEES);  
-//     // weather_PIC = NO_WEATHER_PIC;
+//     // weather_PIC = NO_BROADCAST_PIC;
 //     // xEventGroupClearBits(
-//     //     dwin_event_group,BIT_WEATHER_OK
+//     //     dwin_event_group,BIT_BROADCAST_OK
 //     //     |BIT_RESPONSE_400_SERVER);   
 
 
@@ -169,7 +169,7 @@ void get_weather(const char *city, const char *api_key)
 //         xEventGroupSetBits(dwin_event_group, BIT_RESPONSE_400_SERVER); 
 //         goto st_4;
 //     }
-//     xEventGroupSetBits(dwin_event_group, BIT_WEATHER_OK);
+//     xEventGroupSetBits(dwin_event_group, BIT_BROADCAST_OK);
 //     split_words(local_response_buffer, data_len);
 //     struct tm timeinfo;
 //     time_t time_now = atol(sunrise[0]);
@@ -182,8 +182,8 @@ void get_weather(const char *city, const char *api_key)
 //     sunset_MIN = timeinfo.tm_min;
 //     dt_TX = atoi((dt_txt[0]+SHIFT_DT_TX));
 //     weather_PIC = get_pic(atoi(id[0]), pod[0][0] == 'n');
-//     strncpy(description_WEATHER, description[0], MAX_LEN_DESCRIPTION);
-//     for(int i=0; pop[i] && temp_feel[i] && i < NUMBER_DATA_WEATHER; i++){
+//     strncpy(description_BROADCAST, description[0], MAX_LEN_DESCRIPTION);
+//     for(int i=0; pop[i] && temp_feel[i] && i < NUMBER_DATA_BROADCAST; i++){
 //         temp_FEELS_LIKE[i] = atof(temp_feel[i]);
 //         PoP[i] = atof(pop[i])*100;
 //     }
@@ -204,7 +204,7 @@ void get_weather(const char *city, const char *api_key)
 // st_2:
 //     free(url_buf);
 // st_1:
-//     set_new_command(UPDATE_WEATHER_COMPLETE);
+//     set_new_command(UPDATE_BROADCAST_COMPLETE);
 }
 
 

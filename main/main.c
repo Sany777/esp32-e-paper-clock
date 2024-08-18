@@ -34,7 +34,7 @@ void app_main()
     //     // mpu_measure();
 
     //         // int cmd = device_get_joystick_btn();
-    //         // if(cmd != NO_INP_DATA){
+    //         // if(cmd != NO_DATA){
     //         //     start_signale_series(50, 5, 15);
     //         //     device_set_state(BIT_START_UPDATE_SCR);
     //         // }

@@ -121,8 +121,10 @@ void draw_vertical_line(int ver_0, int ver_1, int hor, int width, int colored)
 
 void epaper_set_rotate(int rotate)
 {
-    paint->SetRotate(rotate);       
-    epd.WaitUntilIdle();
+    if(rotate >= 0 && rotate < 4){
+        paint->SetRotate(rotate);       
+        epd.WaitUntilIdle();
+    }
 }
 
 
