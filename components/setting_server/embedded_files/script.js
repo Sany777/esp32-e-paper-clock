@@ -2,13 +2,13 @@ const DAY_PREF = 'd';
 const ACT_PREF = 'a'
 
 const LIST_DAY = ['Monday','Thusday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-// [formName [type,contextData,[inputNames],]]
+// [formName [type,limit,[inputNames],]]
 const FORMS_LIST = [
   ['Network',[['text','64',['SSID', 'PWD']]]],
   ['Openweather',[['text','32',['Key', 'City']]]],
   ['Update',[['file',,['Firmware']]]],
   ['Offset',[['number','23',['Hour']],['checkbox',0,['Activate']]]],
-  ['Status',[['checkbox',3,['Sound','Offset','WiFi', 'Connect','SNTP']]]]
+  ['Status',[['checkbox',3,['Sound','STA disable', 'Openweather ok','SNTP ok']]]]
 ];
 
 const modal = window.document.getElementById('modal');

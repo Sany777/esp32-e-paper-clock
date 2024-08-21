@@ -8,15 +8,11 @@ extern "C" {
 
 
 
-
-
-
-int set_wifi_sta_config(char *ssid, char *pwd);
-int connect_sta();
+int connect_sta(const char *ssid, const char *pwd);
 int start_ap();
 int wifi_init(void) ;
 void wifi_stop();
-void wifi_off();
+
 
 
 

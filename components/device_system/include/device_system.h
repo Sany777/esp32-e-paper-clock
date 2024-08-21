@@ -13,42 +13,42 @@ enum BasicConst{
     MAX_STR_LEN     = 32,
     API_LEN         = 32,
     NOT_ALLOVED_SOUND_TIME = 6*60,
+    DESCRIPTION_SIZE = 20,
+    TEMP_LIST_SIZE = 5,
+    NET_BUF_LEN  = 5000,
 };
 
 enum Bits{
-    BIT_SOUNDS_DISABLE      = (1<<0),
-    BIT_OFFSET_DISABLE      = (1<<1),
-    BIT_STA_DISABLE         = (1<<2),
-    BIT_STA_CONF_OK         = (1<<3),
-    BIT_SNTP_OK             = (1<<4),
-    BIT_BROADCAST_OK        = (1<<5),
-    BIT_ERR_SSID_NO_FOUND   = (1<<6),
-    BIT_WAIT_MOVING         = (1<<7),
-    BIT_IS_AP_MODE          = (1<<8),
-    BIT_IS_AP_CONNECTION    = (1<<9),
-    BIT_IS_STA_CONNECTION   = (1<<10),
-    BIT_IS_WIFI_INIT        = (1<<11),
-    BIT_IS_TIME             = (1<<12),
-    BIT_SERVER_RUN          = (1<<13),
-    BIT_IS_AP_CLIENT        = (1<<14),
-    BIT_WAIT_PROCCESS       = (1<<15),
+    BIT_SOUNDS_DISABLE          = (1<<0),
+    BIT_STA_DISABLE             = (1<<1),
+    BIT_BROADCAST_OK            = (1<<2),
+    BIT_SNTP_OK                 = (1<<3),
+    BIT_OFFSET_DISABLE          = (1<<4),
+    BIT_STA_CONF_OK             = (1<<5),
+    BIT_ERR_SSID_NO_FOUND       = (1<<6),
+    BIT_WAIT_MOVING             = (1<<7),
+    BIT_IS_AP_MODE              = (1<<8),
+    BIT_IS_AP_CONNECTION        = (1<<9),
+    BIT_IS_STA_CONNECTION       = (1<<10),
+    BIT_IS_TIME                 = (1<<11),
+    BIT_SERVER_RUN              = (1<<12),
+    BIT_IS_AP_CLIENT            = (1<<13),
+    BIT_WAIT_PROCCESS           = (1<<14),
+    BIT_START_SERVER            = (1<<15),
+    BIT_UPDATE_BROADCAST_DATA   = (1<<16),
+    BIT_INIT_SNTP               = (1<<17),
+    BIT_START_MPU_DATA_UPDATE   = (1<<18),
+    BIT_WAIT_BUT_INPUT          = (1<<19),
+    BIT_NEW_DATA                = (1<<20),
 
-    BIT_START_SERVER            = (1<<16),
-    BIT_UPDATE_BROADCAST_DATA   = (1<<17),
-    BIT_INIT_SNTP               = (1<<18),
-    BIT_START_MPU_DATA_UPDATE   = (1<<19),
-    BIT_BUT_INPUT               = (1<<20),
-    BIT_NEW_DATA                = (1<<21),
-    BIT_START_STA_WIFI          = (1<<22), // always try connect to sta
-    BIT_UPDATE_WIFI_CONF        = (1<<23),
     STORED_FLAGS                = (BIT_SOUNDS_DISABLE|BIT_OFFSET_DISABLE|BIT_STA_DISABLE),
     NUMBER_STORED_FLAGS         = 3
 };
 
 typedef struct {
-    char ssid[MAX_STR_LEN];
-    char pwd[MAX_STR_LEN];
-    char city_name[MAX_STR_LEN];
+    char ssid[MAX_STR_LEN+1];
+    char pwd[MAX_STR_LEN+1];
+    char city_name[MAX_STR_LEN+1];
     char api_key[API_LEN+1];
     unsigned flags;
     int time_offset;
@@ -58,15 +58,16 @@ typedef struct {
 
 
 typedef struct {
+    char desciption[DESCRIPTION_SIZE];
     int cur_min;
-    float temp_list[5];
-    char desciption[20];
+    float temp_list[TEMP_LIST_SIZE];
 } service_data_t;
 
 void device_gpio_init();
 int device_get_joystick_btn();
 int device_set_pin(int pin, unsigned state);
 
+void clear_bit_from_isr(unsigned bits);
 void set_bit_from_isr(unsigned bits);
 
 #define GPIO_WAKEUP_PIN     (34)
@@ -128,9 +129,10 @@ void device_system_init();
 
 extern service_data_t service_data;
 
+extern char network_buf[];
 
-
-
+#define MIN(a,b)    \
+    ((a)>(b)?(b):(a))
 
 #ifdef __cplusplus
 }

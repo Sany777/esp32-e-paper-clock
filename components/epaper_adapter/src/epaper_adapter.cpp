@@ -76,7 +76,7 @@ void epaper_display_all()
 {
     epd.WaitUntilIdle();
     epd.Display(screen);
-    epd.WaitUntilIdle();
+    // epd.WaitUntilIdle();
 }
 
 void epaper_clear(int colored)
@@ -123,7 +123,7 @@ void epaper_set_rotate(int rotate)
 {
     if(rotate >= 0 && rotate < 4){
         paint->SetRotate(rotate);       
-        epd.WaitUntilIdle();
+        // epd.WaitUntilIdle();
     }
 }
 
@@ -131,5 +131,11 @@ void epaper_set_rotate(int rotate)
 void epaper_display_part()
 {
     epd.DisplayPart(screen);
+    // epd.WaitUntilIdle();
+}
+
+
+void epaper_wait()
+{
     epd.WaitUntilIdle();
 }

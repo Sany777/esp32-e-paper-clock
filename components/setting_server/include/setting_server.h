@@ -10,9 +10,8 @@ extern "C" {
 
 
 
-int start_server();
-
-void stop_server();
+int init_server(char *server_buf);
+int deinit_server();
 
 #ifdef __cplusplus
 }

@@ -37,7 +37,7 @@ void epaper_print_str(int hor, int ver, int font_size, color_t colored, const ch
 void epaper_display_part();
 void epaper_display_all();
 
-
+void epaper_wait();
 
 #ifdef __cplusplus
 }

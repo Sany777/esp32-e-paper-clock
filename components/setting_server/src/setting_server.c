@@ -6,8 +6,6 @@
 #include "stdbool.h"
 
 #include "esp_http_server.h"
-// #include "esp_ota_ops.h"
-// #include "esp_partition.h"
 #include "esp_chip_info.h"
 #include "string.h"
 #include "portmacro.h"
@@ -19,12 +17,7 @@
 #include "device_system.h"
 
 
-#define BUF_SIZE 2000
-
-
 static httpd_handle_t server;
-static char *server_buf;
-
 
 const char *MES_DATA_NOT_READ = "Data not read";
 const char *MES_DATA_TOO_LONG = "Data too long";
@@ -34,13 +27,12 @@ const char *MES_SUCCESSFUL = "Successful";
 
 
 
-#define SEND_REQ_ERR(_req_, _str_, _label_) \
-    do{ httpd_resp_send_err((_req_), HTTPD_400_BAD_REQUEST, (_str_)); goto _label_;}while(0)
+#define SEND_REQ_ERR(_req_, _str_, _fail_) \
+    do{ httpd_resp_send_err((_req_), HTTPD_400_BAD_REQUEST, (_str_)); goto _fail_;}while(0)
 
-#define SEND_SERVER_ERR(_req_, _str_, _label_) \
-    do{ httpd_resp_send_err((_req_), HTTPD_500_INTERNAL_SERVER_ERROR, (_str_)); goto _label_;}while(0)
+#define SEND_SERVER_ERR(_req_, _str_, _fail_) \
+    do{ httpd_resp_send_err((_req_), HTTPD_500_INTERNAL_SERVER_ERROR, (_str_)); goto _fail_;}while(0)
 
-static int deinit_server();
 
 void server_stop()
 {
@@ -101,12 +93,13 @@ static esp_err_t handler_set_network(httpd_req_t *req)
     int received;
     size_t pwd_len = 0, ssid_len = 0;
     const size_t total_len = req->content_len;
-    if(total_len >= BUF_SIZE){
-        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, label_1);
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, fail_1);
     }
     received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, label_1);
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_1);
     }
     server_buf[received] = 0;
     root = cJSON_Parse(server_buf);
@@ -122,7 +115,7 @@ static esp_err_t handler_set_network(httpd_req_t *req)
         pwd_len = strnlen(pwd_wifi, MAX_STR_LEN);
     }
     if(ssid_len > MAX_STR_LEN || pwd_len > MAX_STR_LEN){
-        SEND_REQ_ERR(req, "Data length too long", label_2);
+        SEND_REQ_ERR(req, "Data length too long", fail_2);
     }
 
     if(ssid_len){
@@ -135,9 +128,9 @@ static esp_err_t handler_set_network(httpd_req_t *req)
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
 
-label_2:
+fail_2:
     cJSON_Delete(root);
-label_1:
+fail_1:
     return ESP_FAIL;
 }
 
@@ -148,12 +141,13 @@ static esp_err_t handler_set_openweather_data(httpd_req_t *req)
     int received;
     size_t key_len = 0, city_len = 0;
     const int total_len = req->content_len;
-    if(total_len >= BUF_SIZE){
-        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, label_1);
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, fail_1);
     }
     received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, label_1);
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_1);
     }
     server_buf[received] = 0;
     root = cJSON_Parse(server_buf);
@@ -167,12 +161,12 @@ static esp_err_t handler_set_openweather_data(httpd_req_t *req)
         key = key_j->valuestring;
         key_len = strnlen(key, API_LEN+1);
         if(key_len != API_LEN){
-            SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, label_2);
+            SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
         }
     }
     if((city_len == 0 && key_len == 0) 
         || city_len > MAX_STR_LEN){
-        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, label_2);
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
     }
     device_set_city(city_name);
     device_set_key(key);
@@ -180,9 +174,9 @@ static esp_err_t handler_set_openweather_data(httpd_req_t *req)
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
 
-label_2:
+fail_2:
     cJSON_Delete(root);
-label_1:
+fail_1:
     return ESP_FAIL;
 }
 
@@ -202,14 +196,14 @@ const char *get_chip(int model_id)
 
 static esp_err_t handler_get_info(httpd_req_t *req)
 {
-    char sys_info[200];
+    char * server_buf = (char *)req->user_ctx;
     esp_chip_info_t chip_info;
     esp_chip_info(&chip_info);
-    snprintf(sys_info, 200, "idf version %s\nchip %s\nrevision %u", 
+    snprintf(server_buf, 200, "idf version %s\nchip %s\nrevision %u", 
                     IDF_VER, 
                     get_chip(chip_info.model), 
                     chip_info.revision);
-    httpd_resp_sendstr(req, sys_info);
+    httpd_resp_sendstr(req, server_buf);
     return ESP_OK;
 }
 
@@ -218,19 +212,20 @@ static esp_err_t handler_set_time(httpd_req_t *req)
     long long time;
     int received;
     const int total_len = req->content_len;
-    if(total_len >= BUF_SIZE){
-        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, err);
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, fail);
     }
     received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len){
-        SEND_REQ_ERR(req, MES_DATA_NOT_READ, err);
+        SEND_REQ_ERR(req, MES_DATA_NOT_READ, fail);
     }
     server_buf[total_len] = 0;
     time = atoll(server_buf);
     set_time_ms(time);
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
-err:
+fail:
     return ESP_FAIL;
 }
 
@@ -242,24 +237,24 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     char *data_to_send;
     cJSON *root;
     uint32_t flags_to_send;
-    char *notif_data_str;
+    char *notif_data_str = (char *)req->user_ctx;
     char schema_data_str[WEEK_DAYS_NUM*2+1];
     unsigned *schema = device_get_schema();
     unsigned *notify = device_get_notif();
-    const size_t notif_data_str_size = get_notif_num(schema);
-    notif_data_str = (char *)malloc(notif_data_str_size+1);
-    if(notif_data_str == NULL){
-        SEND_REQ_ERR(req, MES_NO_MEMORY, label_1);
-    }
-    notif_data_str[notif_data_str_size] = 0;
-    httpd_resp_set_type(req, "application/json");
+    size_t notif_data_str_size = get_notif_num(schema);
+    if(notif_data_str_size >= NET_BUF_LEN){
+        notif_data_str_size = 0;
+        memset(schema, 0, sizeof(unsigned)*WEEK_DAYS_NUM);
+    } 
     num_arr_to_str(schema_data_str, schema, 2, WEEK_DAYS_NUM);
     num_arr_to_str(notif_data_str,  notify, 4, notif_data_str_size);
+    notif_data_str[notif_data_str_size] = 0;
+    httpd_resp_set_type(req, "application/json");
 
     flags_to_send = device_get_state();
     root = cJSON_CreateObject();
     if(!root){
-        SEND_REQ_ERR(req, MES_NO_MEMORY, label_2);
+        SEND_REQ_ERR(req, MES_NO_MEMORY, fail_1);
     }
     cJSON_AddStringToObject(root, "SSID", device_get_ssid());
     cJSON_AddStringToObject(root, "PWD", device_get_pwd());
@@ -271,23 +266,18 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     data_to_send = cJSON_Print(root);
 
     if(!data_to_send){
-        SEND_REQ_ERR(req, MES_NO_MEMORY, label_3);
+        SEND_REQ_ERR(req, MES_NO_MEMORY, fail_2);
     }
     httpd_resp_sendstr(req, data_to_send);
     free(data_to_send);
     data_to_send = NULL;
-    free(notif_data_str);
-    notif_data_str = NULL;
     cJSON_Delete(root);
     return ESP_OK;
 
-label_3:
+fail_2:
     cJSON_Delete(root);
 
-label_2:
-    free(notif_data_str);
-
-label_1:
+fail_1:
 
     return ESP_FAIL;
 }
@@ -299,19 +289,20 @@ static esp_err_t handler_set_flag(httpd_req_t *req)
     unsigned flags;
     int received,
         total_len = req->content_len;
-    if(total_len >= BUF_SIZE){
-        SEND_REQ_ERR(req, "Content too long", err);
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, "Content too long", fail);
     }
     received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        SEND_REQ_ERR(req, "Data not read", err);
+        SEND_REQ_ERR(req, "Data not read", fail);
     }
     server_buf[total_len] = 0;
     flags = atol(server_buf) & STORED_FLAGS;
     device_set_state(flags);
     httpd_resp_sendstr(req, "Set flags successfully");
     return ESP_OK;
-err:
+fail:
     return ESP_FAIL;
 }
 
@@ -325,12 +316,13 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
     char *notif_str, *schema_str;
     int received, notification_num;
     const int total_len = req->content_len;
-    if(total_len >= BUF_SIZE){
-        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, label_1);
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, fail_1);
     }
     received = httpd_req_recv(req, server_buf, total_len);
     if (received != total_len) {
-        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, label_1);
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_1);
     }
     server_buf[received] = 0;
     root = cJSON_Parse(server_buf);
@@ -339,7 +331,7 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
 
     if(!cJSON_IsString(notif_data_j) || notif_data_j->valuestring == NULL
             || !cJSON_IsString(notif_schema_j) || notif_schema_j->valuestring == NULL){
-        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, label_2);
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
     }
     schema_str = notif_schema_j->valuestring;
     notif_str = notif_data_j->valuestring;
@@ -347,7 +339,7 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
     notif_size = strlen(notif_str);
     schema_size = strlen(schema_str);
     if(schema_size != 14 || notif_size%4 != 0 ){
-        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, label_2);
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
     }
 
     for(int i=0; i<WEEK_DAYS_NUM; ++i, schema_str += 2){
@@ -355,11 +347,11 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
     }
     notification_num = get_notif_num(schema_data);
     if(notification_num != notif_size/4){
-        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, label_2);
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
     }
     notif_data = ptr = (unsigned *)malloc(notification_num*sizeof(int));
     if (notif_data == NULL) {
-        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, label_2);
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_2);
     }
     for(int i=0; i<notification_num; ++i, notif_str += 4){
         notif_data[i] = get_num(notif_str, 4);
@@ -369,14 +361,14 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
 
-label_2:
+fail_2:
     cJSON_Delete(root);
-label_1:
+fail_1:
     return ESP_FAIL;
 }
 
 
-static int deinit_server()
+int deinit_server()
 {
     esp_err_t err = ESP_FAIL;
     if(server != NULL){
@@ -384,30 +376,18 @@ static int deinit_server()
         vTaskDelay(1000/portTICK_PERIOD_MS);
         server = NULL;
     }
-    if(server_buf){
-        free(server_buf); 
-        server_buf = NULL;
-    }
     return err;
 }
 
 
-int start_server()
+int init_server(char *server_buf)
 {
     if(server != NULL) return ESP_FAIL;
-    server_buf = (char *)malloc(BUF_SIZE); 
-    if(server_buf == NULL) return ESP_ERR_NO_MEM;
-    if( !(device_get_state()&BIT_IS_AP_MODE )){
-        start_ap();
-        device_wait_bits(BIT_IS_AP_MODE);
-    }
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 12;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if(httpd_start(&server, &config) != ESP_OK){
-        free(server_buf);
-        server_buf = NULL;
         return ESP_FAIL;
     }
     
@@ -415,7 +395,7 @@ int start_server()
         .uri      = "/Status",
         .method   = HTTP_POST,
         .handler  = handler_set_flag,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &set_flags);
 
@@ -423,7 +403,7 @@ int start_server()
         .uri      = "/info?",
         .method   = HTTP_POST,
         .handler  = handler_get_info,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &get_info);
 
@@ -431,7 +411,7 @@ int start_server()
         .uri      = "/data?",
         .method   = HTTP_POST,
         .handler  = handler_give_data,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &get_setting);
     
@@ -439,7 +419,7 @@ int start_server()
         .uri      = "/close",
         .method   = HTTP_POST,
         .handler  = handler_close,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &close_uri);
 
@@ -447,7 +427,7 @@ int start_server()
         .uri      = "/Network",
         .method   = HTTP_POST,
         .handler  = handler_set_network,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &net_uri);
 
@@ -455,7 +435,7 @@ int start_server()
         .uri      = "/Openweather",
         .method   = HTTP_POST,
         .handler  = handler_set_openweather_data,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &api_uri);
 
@@ -463,7 +443,7 @@ int start_server()
         .uri      = "/time",
         .method   = HTTP_POST,
         .handler  = handler_set_time,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &time_uri);
 
@@ -471,7 +451,7 @@ int start_server()
         .uri      = "/index.html",
         .method   = HTTP_GET,
         .handler  = get_index_handler ,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &index_uri);
 
@@ -479,7 +459,7 @@ int start_server()
         .uri      = "/style.css",
         .method   = HTTP_GET,
         .handler  = get_css_handler,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &get_style);
 
@@ -487,7 +467,7 @@ int start_server()
         .uri      = "/script.js",
         .method   = HTTP_GET,
         .handler  = get_js_handler,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &get_script);
 
@@ -495,7 +475,7 @@ int start_server()
         .uri      = "/Notification",
         .method   = HTTP_POST,
         .handler  = set_notif_handler,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &notif_uri);
 
@@ -503,34 +483,12 @@ int start_server()
         .uri      = "/*",
         .method   = HTTP_GET,
         .handler  = index_redirect_handler,
-        .user_ctx = NULL
+        .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &redir_uri);
-    int timeout = 0;
-    bool open_sesion = false;
-    device_set_state(BIT_SERVER_RUN);
-    unsigned bits;
-    while(bits = device_get_state(), bits&BIT_SERVER_RUN){
-        vTaskDelay(100/portTICK_PERIOD_MS);
-        if(open_sesion){
-            if(!(bits&BIT_IS_AP_CONNECTION) ){
-                stop_server();
-            }
-        } else if(bits&BIT_IS_AP_CONNECTION){
-            open_sesion = true;
-        } else if(timeout>100){
-            stop_server();
-        } else {
-            timeout += 1;
-        }
-    }
-    device_commit_changes();
-    deinit_server();
+    ESP_LOGI("", "start server");
+    vTaskDelay(100/portTICK_PERIOD_MS);
     return ESP_OK;
 }
 
 
-void stop_server()
-{
-    device_set_state(BIT_SERVER_RUN);
-}
