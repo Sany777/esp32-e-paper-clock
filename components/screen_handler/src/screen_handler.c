@@ -127,16 +127,6 @@ void main_task(void *pv)
         start_timer();
         do{
             vTaskDelay(100/portTICK_PERIOD_MS);
-            timeinfo = get_time_tm();
-
-            service_data.cur_min = get_time_in_min(timeinfo);
-
-            bits = device_wait_bits_untile(BIT_WAIT_MOVING, 
-                                            but_input 
-                                            ? 10/portTICK_PERIOD_MS 
-                                            : 3000/portTICK_PERIOD_MS);
-
-            pos_data = mpu_get_rotate();
 
             cmd = device_get_joystick_btn();
 
@@ -147,6 +137,14 @@ void main_task(void *pv)
                     ++next_screen;
                 }
             }
+
+            if(but_input){
+                bits = device_get_state();
+            } else {
+                bits = device_wait_bits_untile(BIT_WAIT_MOVING, 3000/portTICK_PERIOD_MS);
+            }
+
+            pos_data = mpu_get_rotate();
 
             if(pos_data != last_pos){
                 if(pos_data == TURN_DOWN)
@@ -159,6 +157,9 @@ void main_task(void *pv)
             if(but_input){
                 pos_data = NO_DATA;
             }
+
+            timeinfo = get_time_tm();
+            service_data.cur_min = get_time_in_min(timeinfo);
 
             if(screen != next_screen) {
                 if(next_screen >= SCREEN_LIST_SIZE){
@@ -353,6 +354,7 @@ static void timer_func(int cmd_id, int pos_data)
             start_single_signale(10, 1000);
             min_counter = get_timer_min(pos_data);
         }
+
     } else {
         pausa = TURN_UP == mpu_get_rotate();
     }
@@ -407,8 +409,7 @@ static void timer_func(int cmd_id, int pos_data)
         }
     } else {
         epaper_print_str(30, 90, 48, COLORED, "Stop");
-    }
-    
+    }  
 }
 
 
@@ -454,7 +455,7 @@ void main_func(int cmd_id, int pos_data)
     if(cmd_id == CMD_DEC || cmd_id == CMD_INC){
         device_set_state(BIT_UPDATE_BROADCAST_DATA);
     }
-    if(adc_reader_get_voltage() < 3.6f){
+    if(adc_reader_get_voltage() < 3.5f){
         epaper_printf(10, 10, 16, COLORED, "BAT!");
     }
     if(AHT21_read_data(&t, &hum) == ESP_OK){

@@ -98,10 +98,10 @@ enum PinoutInfo{
 };
 
 int device_get_offset();
-int device_set_pwd(const char *str);
-int device_set_ssid(const char *str);
-int device_set_city(const char *str);
-int device_set_key(const char *str);
+void device_set_pwd(const char *str);
+void device_set_ssid(const char *str);
+void device_set_city(const char *str);
+void device_set_key(const char *str);
 int device_commit_changes();
 unsigned device_get_state();
 unsigned device_set_state(unsigned bits);

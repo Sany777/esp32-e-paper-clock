@@ -227,15 +227,16 @@ function sendData(formName)
   const arr = [];
   const schema = [0,0,0,0,0,0,0];
   let data = null;
-  let flags = 0;
   let i=0;
   const childsList = document.forms[formName];
   if(childsList){
     for(const child of childsList){
       let value = child.value;
       if(value){
-        if(child.type === 'text'||child.type === 'number'){
-            if(!data)
+        if(child.type === 'number'){
+          data = value;
+        } else if(child.type === 'text'){
+            if(data == null)
               data = js;
             js[child.name] = value;
         } else if(child.type === 'file'){
@@ -247,8 +248,10 @@ function sendData(formName)
             const min_num = value.split(':').join('');
             arr.push(get_min_str(min_num));
         } else if(child.type === 'checkbox'){
+            if(data == null)
+                data = 0;
             if(child.checked){
-              flags |= 1<<i;
+              data |= 1<<i;
             }
             i++;
         }
@@ -261,8 +264,6 @@ function sendData(formName)
       });
     } else if(data === js){
       data=JSON.stringify(js);
-    } else {
-      data = flags;
     }
     sendDataForm(formName, data);
   }

@@ -56,45 +56,37 @@ unsigned get_notif_num(unsigned *schema)
     return res;
 }
 
-int device_set_pwd(const char *str)
+void device_set_pwd(const char *str)
 {
     const int len = strnlen(str, MAX_STR_LEN);
-    if(len >= MAX_STR_LEN){
-        return ESP_ERR_INVALID_SIZE;
-    }
     memcpy(main_data.pwd, str, len);
     main_data.pwd[len] = 0;
     changes_main_data = true;
-    return ESP_OK;
 }
 
-int device_set_ssid(const char *str)
+void device_set_ssid(const char *str)
 {
     const int len = strnlen(str, MAX_STR_LEN);
-    if(len == MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
     memcpy(main_data.ssid, str, len);
     main_data.ssid[len] = 0;
     changes_main_data = true;
-    return ESP_OK;
 }
 
-int device_set_city(const char *str)
+void device_set_city(const char *str)
 {
     const int len = strnlen(str, MAX_STR_LEN);
-    if(len >= MAX_STR_LEN)return ESP_ERR_INVALID_SIZE;
     memcpy(main_data.city_name, str, len);
     main_data.city_name[len] = 0;
     changes_main_data = true;
-    return ESP_OK;
 }
 
-int device_set_key(const char *str)
+void device_set_key(const char *str)
 {
-    if(strnlen(str, API_LEN) != API_LEN)return ESP_ERR_INVALID_SIZE;
-    memcpy(main_data.api_key, str, API_LEN);
-    changes_main_data = true;
-    main_data.api_key[API_LEN] = 0;
-    return ESP_OK;
+    if(strnlen(str, API_LEN+1) == API_LEN){
+        memcpy(main_data.api_key, str, API_LEN);
+        changes_main_data = true;
+        main_data.api_key[API_LEN] = 0;
+    }
 }
 
 void device_set_notify_data(unsigned *schema, unsigned *notif_data)

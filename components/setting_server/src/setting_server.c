@@ -89,9 +89,7 @@ static esp_err_t handler_close(httpd_req_t *req)
 static esp_err_t handler_set_network(httpd_req_t *req)
 {
     cJSON *root, *ssid_name_j, *pwd_wifi_j;
-    const char *ssid_name = NULL, *pwd_wifi = NULL;
     int received;
-    size_t pwd_len = 0, ssid_len = 0;
     const size_t total_len = req->content_len;
     char * server_buf = (char *)req->user_ctx;
     if(total_len >= NET_BUF_LEN){
@@ -103,43 +101,31 @@ static esp_err_t handler_set_network(httpd_req_t *req)
     }
     server_buf[received] = 0;
     root = cJSON_Parse(server_buf);
+    if(!root){
+        SEND_SERVER_ERR(req, MES_NO_MEMORY, fail_1);
+    }
+
     ssid_name_j = cJSON_GetObjectItemCaseSensitive(root, "SSID");
     pwd_wifi_j = cJSON_GetObjectItemCaseSensitive(root, "PWD");
     
     if(cJSON_IsString(ssid_name_j) && (ssid_name_j->valuestring != NULL)){
-        ssid_name = ssid_name_j->valuestring;
-        ssid_len = strnlen(ssid_name, MAX_STR_LEN);
+        device_set_ssid(ssid_name_j->valuestring);
     }
     if(cJSON_IsString(pwd_wifi_j) && (pwd_wifi_j->valuestring != NULL)){
-        pwd_wifi = pwd_wifi_j->valuestring;
-        pwd_len = strnlen(pwd_wifi, MAX_STR_LEN);
-    }
-    if(ssid_len > MAX_STR_LEN || pwd_len > MAX_STR_LEN){
-        SEND_REQ_ERR(req, "Data length too long", fail_2);
-    }
-
-    if(ssid_len){
-        device_set_ssid(ssid_name);
-    }
-    if(pwd_len){
-        device_set_pwd(pwd_wifi);
+        device_set_pwd(pwd_wifi_j->valuestring);
     }
     cJSON_Delete(root);
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
 
-fail_2:
-    cJSON_Delete(root);
 fail_1:
     return ESP_FAIL;
 }
 
 static esp_err_t handler_set_openweather_data(httpd_req_t *req)
 {
-    const char *key = NULL, *city_name = NULL;
     cJSON *root, *city_j, *key_j;
     int received;
-    size_t key_len = 0, city_len = 0;
     const int total_len = req->content_len;
     char * server_buf = (char *)req->user_ctx;
     if(total_len >= NET_BUF_LEN){
@@ -151,31 +137,21 @@ static esp_err_t handler_set_openweather_data(httpd_req_t *req)
     }
     server_buf[received] = 0;
     root = cJSON_Parse(server_buf);
+    if(!root){
+        SEND_SERVER_ERR(req, MES_NO_MEMORY, fail_1);
+    }
     city_j = cJSON_GetObjectItemCaseSensitive(root, "City");
     key_j = cJSON_GetObjectItemCaseSensitive(root, "Key");
     if(cJSON_IsString(city_j) && (city_j->valuestring != NULL)){
-        city_name = city_j->valuestring;
-        city_len = strnlen(city_name, MAX_STR_LEN);
+        device_set_city(city_j->valuestring);
     }
     if(cJSON_IsString(key_j) && (key_j->valuestring != NULL)){
-        key = key_j->valuestring;
-        key_len = strnlen(key, API_LEN+1);
-        if(key_len != API_LEN){
-            SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
-        }
+        device_set_key(key_j->valuestring);
     }
-    if((city_len == 0 && key_len == 0) 
-        || city_len > MAX_STR_LEN){
-        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
-    }
-    device_set_city(city_name);
-    device_set_key(key);
     cJSON_Delete(root);
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
     return ESP_OK;
 
-fail_2:
-    cJSON_Delete(root);
 fail_1:
     return ESP_FAIL;
 }
@@ -236,13 +212,11 @@ static esp_err_t handler_give_data(httpd_req_t *req)
 {
     char *data_to_send;
     cJSON *root;
-    uint32_t flags_to_send;
     char *notif_data_str = (char *)req->user_ctx;
     char schema_data_str[WEEK_DAYS_NUM*2+1];
     unsigned *schema = device_get_schema();
     unsigned *notify = device_get_notif();
     size_t notif_data_str_size = get_notif_size(schema);
-    char offset_str[10];
     if(notif_data_str_size < NET_BUF_LEN){
         num_arr_to_str(notif_data_str,  notify, 4, notif_data_str_size);
     } else {
@@ -250,10 +224,8 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     }
     notif_data_str[notif_data_str_size] = 0;
     num_arr_to_str(schema_data_str, schema, 2, WEEK_DAYS_NUM);
-    num_to_str(offset_str,  device_get_offset(), 2, 10);
     httpd_resp_set_type(req, "application/json");
 
-    flags_to_send = device_get_state();
     root = cJSON_CreateObject();
     if(!root){
         SEND_REQ_ERR(req, MES_NO_MEMORY, fail_1);
@@ -262,10 +234,10 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     cJSON_AddStringToObject(root, "PWD", device_get_pwd());
     cJSON_AddStringToObject(root, "Key", device_get_api_key());
     cJSON_AddStringToObject(root, "City", device_get_city_name());
-    cJSON_AddNumberToObject(root, "Status", flags_to_send);
+    cJSON_AddNumberToObject(root, "Status", device_get_state());
     cJSON_AddStringToObject(root, "schema", schema_data_str);
     cJSON_AddStringToObject(root, "notif", notif_data_str);
-    cJSON_AddStringToObject(root, "Offset", offset_str);
+    cJSON_AddNumberToObject(root, "Hour", device_get_offset());
     data_to_send = cJSON_Print(root);
 
     if(!data_to_send){
@@ -314,8 +286,6 @@ fail:
 static esp_err_t set_offset_handler(httpd_req_t *req)
 {
     int received;
-    int offset;
-    cJSON *root, *Hour_j;
     const int total_len = req->content_len;
     char * server_buf = (char *)req->user_ctx;
     if(total_len >= NET_BUF_LEN){
@@ -326,22 +296,10 @@ static esp_err_t set_offset_handler(httpd_req_t *req)
         SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_1);
     }
     server_buf[received] = 0;
-    root = cJSON_Parse(server_buf);
-    if(!root){
-        SEND_SERVER_ERR(req, MES_NO_MEMORY, fail_1);
-    }
-    Hour_j = cJSON_GetObjectItemCaseSensitive(root, "Hour");
-    if( !cJSON_IsNumber(Hour_j)){
-        SEND_SERVER_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
-    }
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
-    offset = Hour_j->valueint;
-    device_set_offset(offset);
-    cJSON_Delete(root);
+    device_set_offset(atoi(server_buf));
     return ESP_OK;
-
-fail_2:
-    cJSON_Delete(root);
+    
 fail_1:
     return ESP_FAIL;
 
@@ -366,6 +324,10 @@ static esp_err_t set_notif_handler(httpd_req_t *req)
     }
     server_buf[received] = 0;
     root = cJSON_Parse(server_buf);
+    if(!root){
+        SEND_REQ_ERR(req, MES_NO_MEMORY, fail_1);
+    }
+
     notif_data_j = cJSON_GetObjectItemCaseSensitive(root, "notif");
     notif_schema_j = cJSON_GetObjectItemCaseSensitive(root, "schema");
 

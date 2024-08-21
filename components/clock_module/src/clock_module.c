@@ -37,12 +37,17 @@ void set_time_ms(long long time_ms)
 
 static void set_time_cb(struct timeval *tv)
 {
-    settimeofday(tv, NULL);
     unsigned bits = device_set_state(BIT_IS_TIME|BIT_SNTP_OK); 
-    if( !(bits & BIT_OFFSET_ENABLE)){
+    if(bits & BIT_OFFSET_ENABLE){
+        tv->tv_sec += 60 * 60 * device_get_offset();
+        settimeofday(tv, NULL);
+    } else {
         setenv("TZ", "EET2EEST,M3.5.0/3,M10.5.0/4", 1);
         tzset();
+        settimeofday(tv, NULL);
     }
+
+    device_set_state(BIT_NEW_DATA);
     // first call
     if(esp_sntp_get_sync_interval() < INTERVAL_10_HOUR){
         esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
