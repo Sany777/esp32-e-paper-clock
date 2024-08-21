@@ -1,7 +1,6 @@
 #include "clock_module.h"
 
 #include <time.h>
-#include <sys/time.h>
 #include "device_system.h"
 #include "string.h"
 #include "esp_sntp.h"
@@ -13,15 +12,13 @@
 #define INTERVAL_10_HOUR   (1000*60*60*10)
 #define INTERVAL_1_MIN      (1000*60*1)
 
-int get_time_in_min()
+int get_time_in_min(struct tm* tinfo)
 {
-    struct tm* tinfo = get_time_tm();
     return tinfo->tm_hour*60 + tinfo->tm_min;
 }
 
 struct tm* get_time_tm(void)
 {
-    static struct tm cur, *t;
     time_t time_now;
     time(&time_now);
     return localtime(&time_now);
@@ -41,12 +38,14 @@ void set_time_ms(long long time_ms)
 static void set_time_cb(struct timeval *tv)
 {
     settimeofday(tv, NULL);
-    setenv("TZ", "EET2EEST,M3.5.0/3,M10.5.0/4", 1);
-    tzset();
+    unsigned bits = device_set_state(BIT_IS_TIME|BIT_SNTP_OK); 
+    if( !(bits & BIT_OFFSET_ENABLE)){
+        setenv("TZ", "EET2EEST,M3.5.0/3,M10.5.0/4", 1);
+        tzset();
+    }
     // first call
     if(esp_sntp_get_sync_interval() < INTERVAL_10_HOUR){
         esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
-        device_set_state(BIT_IS_TIME|BIT_SNTP_OK); 
     }
 }
 

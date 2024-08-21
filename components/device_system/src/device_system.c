@@ -20,14 +20,10 @@
 #include "periodic_task.h"
 
 
-
-
-
 #include "freertos/FreeRTOS.h"
 #include "MPU6500.h"
 #include "epaper_adapter.h"
 
-#include "portmacro.h"
 #include "esp_log.h"
 
 
@@ -40,12 +36,14 @@ static EventGroupHandle_t clock_event_group;
 static const char *MAIN_DATA_NAME = "main_data";
 static const char *NOTIFY_DATA_NAME = "notify_data";
 
-
-
-
 static int read_data();
 
 
+void device_set_offset(int time_offset)
+{
+    main_data.time_offset = time_offset;
+    changes_main_data = true;
+}
 
 
 unsigned get_notif_num(unsigned *schema)
@@ -185,7 +183,10 @@ char *  device_get_city_name()
     return main_data.city_name;
 }
 
-
+int device_get_offset()
+{
+    return main_data.time_offset;
+}
 
 
 static int read_data()
@@ -203,6 +204,7 @@ static int read_data()
 
 bool is_signale(int cur_min, int cur_day)
 {
+    cur_day = (cur_day+1) % 7;
     const unsigned notif_num = main_data.schema[cur_day];
     unsigned *notif_data = main_data.notification;
     if( notif_num && notif_data

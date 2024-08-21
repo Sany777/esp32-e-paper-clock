@@ -7,8 +7,8 @@ const FORMS_LIST = [
   ['Network',[['text','64',['SSID', 'PWD']]]],
   ['Openweather',[['text','32',['Key', 'City']]]],
   ['Update',[['file',,['Firmware']]]],
-  ['Offset',[['number','23',['Hour']],['checkbox',0,['Activate']]]],
-  ['Status',[['checkbox',3,['Sound','STA disable', 'Openweather ok','SNTP ok']]]]
+  ['Offset',[['number','23',['Hour']]]],
+  ['Status',[['checkbox',3,['Sound','STA disable', 'Offset activate', 'Openweather ok','SNTP ok']]]]
 ];
 
 const modal = window.document.getElementById('modal');
@@ -166,7 +166,7 @@ function createForms()
             input.maxLength = limit;
             input.placeholder = 'Enter '+ inputName;
           } else if(type == 'checkbox' 
-              && i < limit){
+              && i >= limit){
             input.disabled = true;
           } else if(type == 'number'){
             input.max = limit;
@@ -234,7 +234,7 @@ function sendData(formName)
     for(const child of childsList){
       let value = child.value;
       if(value){
-        if(child.type === 'text'){
+        if(child.type === 'text'||child.type === 'number'){
             if(!data)
               data = js;
             js[child.name] = value;
@@ -256,8 +256,8 @@ function sendData(formName)
     }
     if(formName == 'Notification'){
       data = JSON.stringify({
-      schema:get_schema_str(schema),
-      notif:arr.join('')
+        schema:get_schema_str(schema),
+        notif:arr.join('')
       });
     } else if(data === js){
       data=JSON.stringify(js);

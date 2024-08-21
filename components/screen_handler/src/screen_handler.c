@@ -45,18 +45,7 @@ enum FuncId{
     SCREEN_DEVICE_INFO,
 };
 
-struct tm
-{
-    int	tm_sec;
-    int	tm_min;
-    int	tm_hour;
-    int	tm_mday;
-    int	tm_mon;
-    int	tm_year;
-    int	tm_wday;
-    int	tm_yday;
-    int	tm_isdst;
-};
+
 
 static void timer_func(int cmd_id, int pos_data);
 static void setting_func(int cmd_id, int pos_data);
@@ -111,25 +100,36 @@ bool wait_moving(bool wait_move, int timeout_ms)
 
 void main_task(void *pv)
 {
-    set_system_time(60*60*15);
-    uint64_t sleep_time_ms;
     unsigned bits;
     int cmd;
     int min = -1;
     int pos_data, last_pos = TURN_NORMAL;
     int screen = -1;
+    uint64_t sleep_time_ms;
     next_screen = SCREEN_MAIN;
     bool but_input, exit, refresh = true;
     int timeout = TIMEOUT_6_SEC;
     vTaskDelay(100/portTICK_PERIOD_MS);
-    device_get_state(BIT_INIT_SNTP|BIT_UPDATE_BROADCAST_DATA);
+    struct tm * timeinfo;
     for(;;){
+
+        bits = device_get_state();
+
+        if( !(bits & BIT_IS_TIME) ){
+            device_set_state(BIT_UPDATE_BROADCAST_DATA);
+        } 
+
+        if( !(bits & BIT_BROADCAST_OK)){
+            device_set_state(BIT_UPDATE_BROADCAST_DATA);
+        }
+
         but_input = exit = false;
         start_timer();
         do{
             vTaskDelay(100/portTICK_PERIOD_MS);
+            timeinfo = get_time_tm();
 
-            service_data.cur_min = get_time_in_min();
+            service_data.cur_min = get_time_in_min(timeinfo);
 
             bits = device_wait_bits_untile(BIT_WAIT_MOVING, 
                                             but_input 
@@ -174,6 +174,7 @@ void main_task(void *pv)
             } else if(min != service_data.cur_min) {
                 min = service_data.cur_min;
                 cmd = CMD_UPDATE_DATA; 
+                if(is_signale(service_data.cur_min, timeinfo->tm_wday));
             } else if(!exit && get_timer_ms() > timeout) {
                 exit = true;
                 cmd = CMD_UPDATE_DATA;
@@ -198,6 +199,7 @@ void main_task(void *pv)
                 || cmd != NO_DATA 
                 || bits & BIT_WAIT_PROCCESS
                 || bits & BIT_WAIT_BUT_INPUT);
+        
         
         vTaskDelay(100/portTICK_PERIOD_MS);
         wifi_stop();
@@ -302,14 +304,14 @@ int tasks_init()
     if(xTaskCreate(
             service_task, 
             "service",
-            10000, 
+            15000, 
             NULL, 
             5,
             NULL) != pdTRUE
         || xTaskCreate(
             main_task, 
             "main",
-            10000, 
+            15000, 
             NULL, 
             5,
             NULL) != pdTRUE 
@@ -452,7 +454,9 @@ void main_func(int cmd_id, int pos_data)
     if(cmd_id == CMD_DEC || cmd_id == CMD_INC){
         device_set_state(BIT_UPDATE_BROADCAST_DATA);
     }
-
+    if(adc_reader_get_voltage() < 3.6f){
+        epaper_printf(10, 10, 16, COLORED, "BAT!");
+    }
     if(AHT21_read_data(&t, &hum) == ESP_OK){
         draw_horizontal_line(0, 200, 70, 2, COLORED);
         epaper_print_str(5, 40, 20, COLORED, "room");
@@ -471,10 +475,15 @@ void device_info_func(int cmd_id, int pos_data)
     unsigned bits = device_get_state();
     draw_horizontal_line(0, 200, 52, 2, COLORED);
     epaper_printf(5, 30, 20, COLORED, "Battery: %.2fV", adc_reader_get_voltage());
-    epaper_printf(5, 55, 20, COLORED, "WIFi: %s", 
+    draw_horizontal_line(0, 200, 30, 5, COLORED);
+    epaper_printf(5, 55, 20, COLORED, "STA: %s", 
                         bits&BIT_IS_STA_CONNECTION
-                        ? "ok"
-                        : "nok");
+                        ? "con."
+                        : "disc.");
+    epaper_printf(5, 55, 20, COLORED, "AP: %s", 
+                        bits&BIT_IS_AP_CONNECTION
+                        ? "con."
+                        : "disc.");
     epaper_printf(5, 80, 20, COLORED, "SNTP: %s", 
                         bits&BIT_SNTP_OK
                         ? "ok"
@@ -504,7 +513,6 @@ void weather_info_func(int cmd_id, int pos_data)
     if(cmd_id == CMD_INC || cmd_id == CMD_DEC){
         device_set_state(BIT_UPDATE_BROADCAST_DATA);
     }
-    epaper_printf(5, 10, 20, COLORED, "Battery:%.2fv", adc_reader_get_voltage());
     epaper_print_str(10, 40, 24, COLORED, service_data.desciption);
     unsigned h = service_data.cur_min / 60;
     for(int i=0; i<TEMP_LIST_SIZE; ++i){

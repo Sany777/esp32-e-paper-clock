@@ -28,7 +28,6 @@ void app_main()
     start_signale_series(40, 3, 1000, 10);
     vTaskDelay(100);
     tasks_init();
-
 }
 
 

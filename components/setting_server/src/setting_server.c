@@ -241,14 +241,16 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     char schema_data_str[WEEK_DAYS_NUM*2+1];
     unsigned *schema = device_get_schema();
     unsigned *notify = device_get_notif();
-    size_t notif_data_str_size = get_notif_num(schema);
-    if(notif_data_str_size >= NET_BUF_LEN){
+    size_t notif_data_str_size = get_notif_size(schema);
+    char offset_str[10];
+    if(notif_data_str_size < NET_BUF_LEN){
+        num_arr_to_str(notif_data_str,  notify, 4, notif_data_str_size);
+    } else {
         notif_data_str_size = 0;
-        memset(schema, 0, sizeof(unsigned)*WEEK_DAYS_NUM);
-    } 
-    num_arr_to_str(schema_data_str, schema, 2, WEEK_DAYS_NUM);
-    num_arr_to_str(notif_data_str,  notify, 4, notif_data_str_size);
+    }
     notif_data_str[notif_data_str_size] = 0;
+    num_arr_to_str(schema_data_str, schema, 2, WEEK_DAYS_NUM);
+    num_to_str(offset_str,  device_get_offset(), 2, 10);
     httpd_resp_set_type(req, "application/json");
 
     flags_to_send = device_get_state();
@@ -263,6 +265,7 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     cJSON_AddNumberToObject(root, "Status", flags_to_send);
     cJSON_AddStringToObject(root, "schema", schema_data_str);
     cJSON_AddStringToObject(root, "notif", notif_data_str);
+    cJSON_AddStringToObject(root, "Offset", offset_str);
     data_to_send = cJSON_Print(root);
 
     if(!data_to_send){
@@ -272,6 +275,7 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     free(data_to_send);
     data_to_send = NULL;
     cJSON_Delete(root);
+
     return ESP_OK;
 
 fail_2:
@@ -306,6 +310,42 @@ fail:
     return ESP_FAIL;
 }
 
+
+static esp_err_t set_offset_handler(httpd_req_t *req)
+{
+    int received;
+    int offset;
+    cJSON *root, *Hour_j;
+    const int total_len = req->content_len;
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, fail_1);
+    }
+    received = httpd_req_recv(req, server_buf, total_len);
+    if (received != total_len) {
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_1);
+    }
+    server_buf[received] = 0;
+    root = cJSON_Parse(server_buf);
+    if(!root){
+        SEND_SERVER_ERR(req, MES_NO_MEMORY, fail_1);
+    }
+    Hour_j = cJSON_GetObjectItemCaseSensitive(root, "Hour");
+    if( !cJSON_IsNumber(Hour_j)){
+        SEND_SERVER_ERR(req, MES_BAD_DATA_FOMAT, fail_2);
+    }
+    httpd_resp_sendstr(req, MES_SUCCESSFUL);
+    offset = Hour_j->valueint;
+    device_set_offset(offset);
+    cJSON_Delete(root);
+    return ESP_OK;
+
+fail_2:
+    cJSON_Delete(root);
+fail_1:
+    return ESP_FAIL;
+
+}
 
 static esp_err_t set_notif_handler(httpd_req_t *req)
 {
@@ -368,6 +408,9 @@ fail_1:
 }
 
 
+
+
+
 int deinit_server()
 {
     esp_err_t err = ESP_FAIL;
@@ -384,7 +427,7 @@ int init_server(char *server_buf)
 {
     if(server != NULL) return ESP_FAIL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 12;
+    config.max_uri_handlers = 13;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if(httpd_start(&server, &config) != ESP_OK){
@@ -486,7 +529,15 @@ int init_server(char *server_buf)
         .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &redir_uri);
-    ESP_LOGI("", "start server");
+
+    httpd_uri_t set_offset_uri = {
+        .uri      = "/Offset",
+        .method   = HTTP_POST,
+        .handler  = set_offset_handler,
+        .user_ctx = server_buf
+    };
+    httpd_register_uri_handler(server, &set_offset_uri);
+
     vTaskDelay(100/portTICK_PERIOD_MS);
     return ESP_OK;
 }

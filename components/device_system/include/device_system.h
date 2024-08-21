@@ -21,13 +21,12 @@ enum BasicConst{
 enum Bits{
     BIT_SOUNDS_DISABLE          = (1<<0),
     BIT_STA_DISABLE             = (1<<1),
-    BIT_BROADCAST_OK            = (1<<2),
-    BIT_SNTP_OK                 = (1<<3),
-    BIT_OFFSET_DISABLE          = (1<<4),
-    BIT_STA_CONF_OK             = (1<<5),
-    BIT_ERR_SSID_NO_FOUND       = (1<<6),
-    BIT_WAIT_MOVING             = (1<<7),
-    BIT_IS_AP_MODE              = (1<<8),
+    BIT_OFFSET_ENABLE           = (1<<2),
+    BIT_BROADCAST_OK            = (1<<3),
+    BIT_SNTP_OK                 = (1<<4),
+    BIT_ERR_SSID_NO_FOUND       = (1<<5),
+    BIT_WAIT_MOVING             = (1<<6),
+    BIT_IS_AP_MODE              = (1<<7),
     BIT_IS_AP_CONNECTION        = (1<<9),
     BIT_IS_STA_CONNECTION       = (1<<10),
     BIT_IS_TIME                 = (1<<11),
@@ -41,7 +40,7 @@ enum Bits{
     BIT_WAIT_BUT_INPUT          = (1<<19),
     BIT_NEW_DATA                = (1<<20),
 
-    STORED_FLAGS                = (BIT_SOUNDS_DISABLE|BIT_OFFSET_DISABLE|BIT_STA_DISABLE),
+    STORED_FLAGS                = (BIT_SOUNDS_DISABLE|BIT_OFFSET_ENABLE|BIT_STA_DISABLE),
     NUMBER_STORED_FLAGS         = 3
 };
 
@@ -66,6 +65,7 @@ typedef struct {
 void device_gpio_init();
 int device_get_joystick_btn();
 int device_set_pin(int pin, unsigned state);
+
 
 void clear_bit_from_isr(unsigned bits);
 void set_bit_from_isr(unsigned bits);
@@ -97,6 +97,7 @@ enum PinoutInfo{
     EP_SCL      = 14,
 };
 
+int device_get_offset();
 int device_set_pwd(const char *str);
 int device_set_ssid(const char *str);
 int device_set_city(const char *str);
@@ -114,7 +115,8 @@ char *device_get_ssid();
 char *device_get_pwd();
 char *device_get_api_key();
 char *device_get_city_name();
-int get_time_in_min();
+void device_set_offset(int time_offset);
+
 unsigned get_notif_num(unsigned *schema);
 void device_system_init();
 

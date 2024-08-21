@@ -135,7 +135,6 @@ int connect_sta(const char *ssid, const char *pwd)
 
 int start_ap()
 {
-
     if (wifi_mode != WIFI_MODE_AP) {
         wifi_stop(); 
     }
