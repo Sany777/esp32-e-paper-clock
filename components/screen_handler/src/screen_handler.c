@@ -114,21 +114,38 @@ void main_task(void *pv)
     int timeout = TIMEOUT_6_SEC;
     vTaskDelay(100/portTICK_PERIOD_MS);
     struct tm * timeinfo;
+    int update_brodcast_min = 0, update_count = 0;
     for(;;){
 
         bits = device_get_state();
+        timeinfo = get_time_tm();
+        service_data.cur_min = get_time_in_min(timeinfo);
 
-        if( !(bits & BIT_IS_TIME) ){
-            device_set_state(BIT_UPDATE_BROADCAST_DATA);
-        } 
+        if(min != service_data.cur_min){
+            if(update_brodcast_min == update_count){
+                if( !(bits & BIT_IS_TIME) ){
+                    device_set_state(BIT_UPDATE_BROADCAST_DATA);
+                } 
 
-        if( !(bits & BIT_BROADCAST_OK)){
-            device_set_state(BIT_UPDATE_BROADCAST_DATA);
+                if( !(bits & BIT_BROADCAST_OK)){
+                    device_set_state(BIT_UPDATE_BROADCAST_DATA);
+                }
+                if( !(bits&BIT_UPDATE_BROADCAST_DATA) && update_brodcast_min < 20){
+                    update_brodcast_min = update_brodcast_min + 2;
+                } else {
+                    update_brodcast_min = 20;
+                }
+                update_count = 0;
+            } else {
+            update_count += 1; 
+            }
         }
 
         but_input = exit = false;
         start_timer();
         do{
+
+            vTaskDelay(100/portTICK_PERIOD_MS);
             
             cmd = device_get_joystick_btn();
 
@@ -196,9 +213,8 @@ void main_task(void *pv)
                         epaper_display_part();
                     }
                 }
-            } else {
-                vTaskDelay(100/portTICK_PERIOD_MS);
-            }
+            } 
+
             
         } while(!exit 
                 || cmd != NO_DATA 
@@ -480,7 +496,6 @@ void device_info_func(int cmd_id, int pos_data)
     unsigned bits = device_get_state();
     draw_horizontal_line(0, 200, 52, 2, COLORED);
     epaper_printf(5, 30, 20, COLORED, "Battery: %.2fV", adc_reader_get_voltage());
-    draw_horizontal_line(0, 200, 30, 5, COLORED);
     epaper_printf(5, 55, 20, COLORED, "STA: %s", 
                         bits&BIT_IS_STA_CONNECTION
                         ? "con."
@@ -522,7 +537,7 @@ void weather_info_func(int cmd_id, int pos_data)
     unsigned h = service_data.cur_min / 60;
     for(int i=0; i<TEMP_LIST_SIZE; ++i){
         if(h>23)h %= 24;
-        epaper_printf(10, 70+i*25, 24, COLORED, "%c%d:00  %.1fC*", 
+        epaper_printf(5, 70+i*25, 24, COLORED, "%c%d:00 %.1fC*", 
                             h>10 ? h/10+'0':' ', 
                             h%10, 
                             service_data.temp_list[i]);

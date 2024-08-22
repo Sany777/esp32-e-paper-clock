@@ -27,17 +27,26 @@ struct tm* get_time_tm(void)
 
 void set_time_ms(long long time_ms)
 {
+    int offet_sec = device_get_offset() * 60 * 60;
     struct timeval tv;
-    tv.tv_sec = time_ms/1000;
+    tv.tv_sec = time_ms/1000 + offet_sec;
     tv.tv_usec = time_ms%1000;
     settimeofday(&tv, NULL);
     device_set_state(BIT_IS_TIME);
 }
 
+void set_offset(int offset_hour)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    tv.tv_sec = tv.tv_sec + offset_hour*60*60;
+    settimeofday(&tv, NULL);
+}
+
 
 static void set_time_cb(struct timeval *tv)
 {
-    unsigned bits = device_set_state(BIT_IS_TIME|BIT_SNTP_OK); 
+    unsigned bits = device_set_state(BIT_IS_TIME); 
     if(bits & BIT_OFFSET_ENABLE){
         tv->tv_sec += 60 * 60 * device_get_offset();
         settimeofday(tv, NULL);
@@ -46,12 +55,11 @@ static void set_time_cb(struct timeval *tv)
         tzset();
         settimeofday(tv, NULL);
     }
-
-    device_set_state(BIT_NEW_DATA);
     // first call
     if(esp_sntp_get_sync_interval() < INTERVAL_10_HOUR){
         esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
     }
+    device_set_state(BIT_SNTP_OK|BIT_NEW_DATA);
 }
 
 
@@ -118,9 +126,3 @@ const char* snprintf_time(const char *format)
     return text_buf;
 }
 
-
-void set_system_time(long long sec)
-{
-    device_set_state(BIT_IS_TIME);
-    sntp_set_system_time(sec, 0);
-}

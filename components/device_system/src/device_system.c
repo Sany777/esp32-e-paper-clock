@@ -1,5 +1,8 @@
 #include "device_system.h"
 
+
+#include "clock_module.h"
+
 #include "stdlib.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -41,6 +44,9 @@ static int read_data();
 
 void device_set_offset(int time_offset)
 {
+    if(main_data.flags & BIT_OFFSET_ENABLE){
+        set_offset(time_offset - main_data.time_offset);
+    }
     main_data.time_offset = time_offset;
     changes_main_data = true;
 }

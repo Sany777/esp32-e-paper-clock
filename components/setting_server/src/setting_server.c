@@ -299,7 +299,11 @@ static esp_err_t set_offset_handler(httpd_req_t *req)
     }
     server_buf[received] = 0;
     httpd_resp_sendstr(req, MES_SUCCESSFUL);
-    device_set_offset(atoi(server_buf));
+    int offset = atoi(server_buf);
+    if(offset > 23 || offset < -23){
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_1);
+    }
+    device_set_offset(offset);
     return ESP_OK;
     
 fail_1:
