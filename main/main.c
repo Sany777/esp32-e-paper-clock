@@ -14,7 +14,7 @@
 void app_main() 
 {
     device_system_init();
-    start_signale_series(40, 3, 1000, 10);
+    start_signale_series(40, 3, 1000);
     vTaskDelay(100);
     tasks_init();
 }

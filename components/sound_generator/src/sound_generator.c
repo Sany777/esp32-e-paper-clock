@@ -21,7 +21,7 @@
 #define DEFAULT_DELAY           100
 
 
-static unsigned _delay;
+static unsigned _delay, _loud;
 
 static ledc_timer_config_t ledc_timer = {
     .speed_mode       = LEDC_MODE,
@@ -54,23 +54,28 @@ static void IRAM_ATTR continue_signale()
 
 void start_single_signale(unsigned delay, unsigned freq)
 {
-    start_signale_series(delay, 1, freq, 60);
+    start_signale_series(delay, 1, freq);
+}
+
+void set_loud(unsigned loud)
+{
+    _loud = loud;
 }
 
 void alarm()
 {
-    start_signale_series(100, 5, 1200, 5);
+    start_signale_series(100, 5, 1200);
 }
 
 void start_alarm()
 {
-    periodic_task_isr_create(alarm, 1000, 3);
+    periodic_task_isr_create(alarm, 1000, 7);
 }
 
-void start_signale_series(unsigned delay, unsigned count, unsigned freq, unsigned loud)
+void start_signale_series(unsigned delay, unsigned count, unsigned freq)
 {
     init_pwm(freq);
-    start_pwm(loud);
+    start_pwm(_loud);
     if(delay == 0)_delay = DEFAULT_DELAY;
     else _delay = delay;
     if(count>1){

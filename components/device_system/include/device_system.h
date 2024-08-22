@@ -9,13 +9,13 @@ extern "C" {
 #include "stdbool.h"
 
 enum BasicConst{
-    WEEK_DAYS_NUM   = 7,
-    MAX_STR_LEN     = 32,
-    API_LEN         = 32,
-    NOT_ALLOVED_SOUND_TIME = 6*60,
-    DESCRIPTION_SIZE = 20,
-    TEMP_LIST_SIZE = 5,
-    NET_BUF_LEN  = 5000,
+    WEEK_DAYS_NUM           = 7,
+    MAX_STR_LEN             = 32,
+    API_LEN                 = 32,
+    NOT_ALLOVED_SOUND_TIME  = 6*60,
+    DESCRIPTION_SIZE        = 20,
+    TEMP_LIST_SIZE          = 5,
+    NET_BUF_LEN             = 5000,
 };
 
 enum Bits{
@@ -50,14 +50,15 @@ typedef struct {
     char city_name[MAX_STR_LEN+1];
     char api_key[API_LEN+1];
     unsigned flags;
+    unsigned loud;
     int time_offset;
     unsigned schema[WEEK_DAYS_NUM];
     unsigned *notification;
-} clock_data_t;
+} settings_data_t;
 
 
 typedef struct {
-    char desciption[DESCRIPTION_SIZE];
+    char desciption[DESCRIPTION_SIZE+1];
     int cur_min;
     float temp_list[TEMP_LIST_SIZE];
 } service_data_t;
@@ -65,7 +66,6 @@ typedef struct {
 void device_gpio_init();
 int device_get_joystick_btn();
 int device_set_pin(int pin, unsigned state);
-
 
 void clear_bit_from_isr(unsigned bits);
 void set_bit_from_isr(unsigned bits);
@@ -78,15 +78,12 @@ void set_bit_from_isr(unsigned bits);
 #define I2C_MASTER_SDA_IO   (25)        
 #define EP_ON_PIN           (22)
 
-
-
 enum CMD{
     BUT_RIGHT,
     BUT_PRESS,
     BUT_LEFT,
     NO_DATA = -1,
 };
-
 
 enum PinoutInfo{
     EP_CS       = 4,
@@ -116,6 +113,8 @@ char *device_get_pwd();
 char *device_get_api_key();
 char *device_get_city_name();
 void device_set_offset(int time_offset);
+void device_set_loud(int loud);
+unsigned device_get_loud();
 
 unsigned get_notif_num(unsigned *schema);
 void device_system_init();
@@ -128,13 +127,15 @@ void device_system_init();
     (get_notif_num(schema)*sizeof(unsigned))
 
 
-
 extern service_data_t service_data;
 
 extern char network_buf[];
 
 #define MIN(a,b)    \
     ((a)>(b)?(b):(a))
+
+
+
 
 #ifdef __cplusplus
 }

@@ -26,15 +26,6 @@
 #include "driver/gpio.h"
 #include "esp_log.h"
 
-#define TIMEOUT_SEC     (1000)
-#define TIMEOUT_2_SEC   (2*TIMEOUT_SEC)
-#define ONE_MINUTE      (60*TIMEOUT_SEC)
-#define TIMEOUT_4_HOUR  (240*ONE_MINUTE)
-#define TIMEOUT_5_SEC   (5*TIMEOUT_SEC)
-#define TIMEOUT_7_SEC   (7*TIMEOUT_SEC)
-#define TIMEOUT_6_SEC   (6*TIMEOUT_SEC)
-#define TIMEOUT_20_SEC  (20*TIMEOUT_SEC)
-#define HALF_MINUTE     (30*TIMEOUT_SEC)
 
 
 enum FuncId{
@@ -43,6 +34,18 @@ enum FuncId{
     SCREEN_TIMER,
     SCREEN_SETTING,
     SCREEN_DEVICE_INFO,
+};
+
+enum TimeoutConst{
+    TIMEOUT_SEC   = 1000,
+    TIMEOUT_2_SEC = 2*TIMEOUT_SEC,
+    ONE_MINUTE    = 60*TIMEOUT_SEC,
+    TIMEOUT_4_HOUR= 240*ONE_MINUTE,
+    TIMEOUT_5_SEC = 5*TIMEOUT_SEC,
+    TIMEOUT_7_SEC = 7*TIMEOUT_SEC,
+    TIMEOUT_6_SEC = 6*TIMEOUT_SEC,
+    TIMEOUT_20_SEC= 20*TIMEOUT_SEC,
+    HALF_MINUTE   = 30*TIMEOUT_SEC,
 };
 
 
@@ -126,8 +129,7 @@ void main_task(void *pv)
         but_input = exit = false;
         start_timer();
         do{
-            vTaskDelay(100/portTICK_PERIOD_MS);
-
+            
             cmd = device_get_joystick_btn();
 
             if(cmd != NO_DATA){
@@ -194,6 +196,8 @@ void main_task(void *pv)
                         epaper_display_part();
                     }
                 }
+            } else {
+                vTaskDelay(100/portTICK_PERIOD_MS);
             }
             
         } while(!exit 
@@ -214,7 +218,7 @@ void main_task(void *pv)
             } else if( (ONE_MINUTE - working_time) > 100){
                 sleep_time_ms = ONE_MINUTE - working_time;
             } else {
-                sleep_time_ms = ONE_MINUTE - TIMEOUT_6_SEC;
+                sleep_time_ms = ONE_MINUTE;
             }
             device_set_pin(AHT21_EN_PIN, 0);
             device_set_pin(EP_ON_PIN, 0);
@@ -227,7 +231,7 @@ void main_task(void *pv)
             if(wait_moving(true, 500)){
                 timeout = TIMEOUT_6_SEC;
             } else {
-                timeout = TIMEOUT_SEC;
+                timeout = 1;
             }
             AHT21_init();
             epaper_init();
@@ -328,11 +332,10 @@ int tasks_init()
 int get_timer_min(int pos)
 {
     if(pos == TURN_LEFT || pos == TURN_RIGHT || pos == TURN_UPSIDE_DOWN){
-        return pos*10 - 1;
+        return pos*10;
     }
     return 5;
 }
-
 
 
 static void timer_func(int cmd_id, int pos_data)
@@ -341,10 +344,9 @@ static void timer_func(int cmd_id, int pos_data)
     float t;
     bool pausa;
 
-    if(pos_data != NO_DATA){
-
-        pausa = pos_data == TURN_UP;
-
+    if(pos_data == NO_DATA){
+        pausa = TURN_UP == mpu_get_rotate();
+    } else {
         if(pos_data == TURN_NORMAL){
             next_screen = SCREEN_MAIN;
             return;
@@ -354,9 +356,7 @@ static void timer_func(int cmd_id, int pos_data)
             start_single_signale(10, 1000);
             min_counter = get_timer_min(pos_data);
         }
-
-    } else {
-        pausa = TURN_UP == mpu_get_rotate();
+        pausa = pos_data == TURN_UP;
     }
 
     if(cmd_id == CMD_INC){
@@ -381,9 +381,9 @@ static void timer_func(int cmd_id, int pos_data)
     }
     
 
-    if(min_counter){
-        if(service_data.cur_min != min){
-            min = service_data.cur_min;
+    if(service_data.cur_min != min){
+        min = service_data.cur_min;
+        if(min_counter){
             if(!pausa){
                 min_counter -= 1;
                 if(min_counter == 0){
@@ -394,7 +394,7 @@ static void timer_func(int cmd_id, int pos_data)
                     if(init_min){
                         min_counter = init_min;
                     } else {
-                        min_counter = mpu_get_rotate();
+                        min_counter = get_timer_min(mpu_get_rotate());
                     }
                 }
             }
@@ -403,9 +403,10 @@ static void timer_func(int cmd_id, int pos_data)
 
     if(min_counter){
         epaper_printf(70, 75, 64, COLORED, "%i", min_counter);
-        epaper_print_str(85, 135, 20, COLORED, "min");
         if(pausa){
-            epaper_print_str(115, 135, 20, COLORED, "Pausa");
+            epaper_print_str(85, 135, 20, COLORED, "Pausa");
+        } else {
+            epaper_print_str(85, 135, 20, COLORED, "min");
         }
     } else {
         epaper_print_str(30, 90, 48, COLORED, "Stop");
@@ -415,7 +416,6 @@ static void timer_func(int cmd_id, int pos_data)
 
 void setting_func(int cmd_id, int pos_data)
 {
-    ESP_LOGI("",  "setting func");
     unsigned bits = device_get_state();
 
     if(bits&BIT_SERVER_RUN){
@@ -440,9 +440,8 @@ void setting_func(int cmd_id, int pos_data)
 
 void main_func(int cmd_id, int pos_data)
 {
-    ESP_LOGI("",  "main func");
+    static int i = 0;
     float t, hum;
-
     if(pos_data == TURN_UP){
         next_screen = SCREEN_BROADCAST_DETAIL;
         return;
@@ -455,8 +454,13 @@ void main_func(int cmd_id, int pos_data)
     if(cmd_id == CMD_DEC || cmd_id == CMD_INC){
         device_set_state(BIT_UPDATE_BROADCAST_DATA);
     }
-    if(adc_reader_get_voltage() < 3.5f){
-        epaper_printf(10, 10, 16, COLORED, "BAT!");
+    if(i>5){
+        if(adc_reader_get_voltage() < 3.5f){
+            epaper_printf(10, 10, 16, COLORED, "BAT!");
+        }
+        i = 1;
+    } else {
+        i += 1;
     }
     if(AHT21_read_data(&t, &hum) == ESP_OK){
         draw_horizontal_line(0, 200, 70, 2, COLORED);
@@ -498,22 +502,22 @@ void device_info_func(int cmd_id, int pos_data)
 
 void weather_info_func(int cmd_id, int pos_data)
 {
-    ESP_LOGI("",  "weather info func");
-
     if(pos_data == TURN_NORMAL){
         next_screen = SCREEN_MAIN;
         return;
-    }else if(pos_data == TURN_LEFT || pos_data == TURN_RIGHT){
+    }
+    if(pos_data == TURN_LEFT || pos_data == TURN_RIGHT){
         next_screen = SCREEN_TIMER;
         return;
-    }else if(pos_data == TURN_UPSIDE_DOWN){
+    }
+    if(pos_data == TURN_UPSIDE_DOWN){
         next_screen = SCREEN_SETTING;
         return;
     }
-
     if(cmd_id == CMD_INC || cmd_id == CMD_DEC){
         device_set_state(BIT_UPDATE_BROADCAST_DATA);
     }
+
     epaper_print_str(10, 40, 24, COLORED, service_data.desciption);
     unsigned h = service_data.cur_min / 60;
     for(int i=0; i<TEMP_LIST_SIZE; ++i){

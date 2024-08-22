@@ -230,6 +230,7 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     if(!root){
         SEND_REQ_ERR(req, MES_NO_MEMORY, fail_1);
     }
+    // input id | value
     cJSON_AddStringToObject(root, "SSID", device_get_ssid());
     cJSON_AddStringToObject(root, "PWD", device_get_pwd());
     cJSON_AddStringToObject(root, "Key", device_get_api_key());
@@ -238,6 +239,7 @@ static esp_err_t handler_give_data(httpd_req_t *req)
     cJSON_AddStringToObject(root, "schema", schema_data_str);
     cJSON_AddStringToObject(root, "notif", notif_data_str);
     cJSON_AddNumberToObject(root, "Hour", device_get_offset());
+    cJSON_AddNumberToObject(root, "%", device_get_loud());
     data_to_send = cJSON_Print(root);
 
     if(!data_to_send){
@@ -302,7 +304,32 @@ static esp_err_t set_offset_handler(httpd_req_t *req)
     
 fail_1:
     return ESP_FAIL;
+}
 
+static esp_err_t set_loud_handler(httpd_req_t *req)
+{
+    unsigned loud = 0;
+    int received;
+    const int total_len = req->content_len;
+    char * server_buf = (char *)req->user_ctx;
+    if(total_len >= NET_BUF_LEN){
+        SEND_REQ_ERR(req, MES_DATA_TOO_LONG, fail_1);
+    }
+    received = httpd_req_recv(req, server_buf, total_len);
+    if (received != total_len) {
+        SEND_SERVER_ERR(req, MES_DATA_NOT_READ, fail_1);
+    }
+    server_buf[received] = 0;
+    httpd_resp_sendstr(req, MES_SUCCESSFUL);
+    loud = atol(server_buf);
+    if(loud > 99){
+        SEND_REQ_ERR(req, MES_BAD_DATA_FOMAT, fail_1);
+    }
+    device_set_loud(loud);
+    return ESP_OK;
+    
+fail_1:
+    return ESP_FAIL;
 }
 
 static esp_err_t set_notif_handler(httpd_req_t *req)
@@ -389,7 +416,7 @@ int init_server(char *server_buf)
 {
     if(server != NULL) return ESP_FAIL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 13;
+    config.max_uri_handlers = 14;
     config.uri_match_fn = httpd_uri_match_wildcard;
 
     if(httpd_start(&server, &config) != ESP_OK){
@@ -499,6 +526,14 @@ int init_server(char *server_buf)
         .user_ctx = server_buf
     };
     httpd_register_uri_handler(server, &set_offset_uri);
+
+    httpd_uri_t set_loud_uri = {
+        .uri      = "/Loud",
+        .method   = HTTP_POST,
+        .handler  = set_loud_handler,
+        .user_ctx = server_buf
+    };
+    httpd_register_uri_handler(server, &set_loud_uri);
 
     vTaskDelay(100/portTICK_PERIOD_MS);
     return ESP_OK;

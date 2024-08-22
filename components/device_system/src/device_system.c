@@ -18,7 +18,7 @@
 #include "AHT21.h"
 #include "MPU6500.h"
 #include "periodic_task.h"
-
+#include "sound_generator.h"
 
 #include "freertos/FreeRTOS.h"
 #include "MPU6500.h"
@@ -28,7 +28,7 @@
 
 
 static bool changes_main_data, changes_notify_data;
-static clock_data_t main_data;
+static settings_data_t main_data;
 service_data_t service_data;
 char network_buf[NET_BUF_LEN];
 
@@ -43,6 +43,18 @@ void device_set_offset(int time_offset)
 {
     main_data.time_offset = time_offset;
     changes_main_data = true;
+}
+
+void device_set_loud(int loud)
+{
+    set_loud(loud);
+    main_data.loud = loud;
+    changes_main_data = true;
+}
+
+unsigned device_get_loud()
+{
+    return main_data.loud;
 }
 
 
@@ -185,6 +197,7 @@ static int read_data()
 {
     CHECK_AND_RET_ERR(read_flash(MAIN_DATA_NAME, (unsigned char *)&main_data, sizeof(main_data)));
     device_set_state(main_data.flags&STORED_FLAGS);
+    set_loud(main_data.loud);
     const unsigned notif_data_byte_num = get_notif_size(main_data.schema);
     if(notif_data_byte_num){
         main_data.notification = (unsigned*)malloc(notif_data_byte_num);

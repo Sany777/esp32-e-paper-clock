@@ -2,13 +2,14 @@ const DAY_PREF = 'd';
 const ACT_PREF = 'a'
 
 const LIST_DAY = ['Monday','Thusday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-// [formName [type,limit,[inputNames],]]
+// [formName [type, max limit, min limit,[inputNames],]]
 const FORMS_LIST = [
-  ['Network',[['text','64',['SSID', 'PWD']]]],
-  ['Openweather',[['text','32',['Key', 'City']]]],
-  ['Update',[['file',,['Firmware']]]],
-  ['Offset',[['number','23',['Hour']]]],
-  ['Status',[['checkbox',3,['Sound','STA disable', 'Offset activate', 'Openweather ok','SNTP ok']]]]
+  ['Network',[['text','64','10',['SSID', 'PWD']]]],
+  ['Openweather',[['text','32',,['Key', 'City']]]],
+  ['Update',[['file',,,['Firmware']]]],
+  ['Offset',[['number','23','0',['Hour']]]],
+  ['Loud',[['number','99','0',['%']]]],
+  ['Status',[['checkbox',3,,['Notifications','STA disable', 'Offset activate', 'Openweather ok','SNTP ok']]]]
 ];
 
 const modal = window.document.getElementById('modal');
@@ -43,7 +44,7 @@ function removeAction(td)
     td.removeChild(td.children[td.children.length-2]);
 }
 
-function createNotification(name)
+function createNotificationForm(name)
 {
   const form = document.createElement('form');
   form.name = name;
@@ -86,7 +87,7 @@ function createNotification(name)
 
 function setNotificationData(schema,notif_data="")
 {
-  if(schema?.length==14 && notif_data?.length%4===0){
+  if(schema?.length==14 && notif_data?.length%4===0 && notif_data.length>0){
     let vi=0, si=0;
     for(let d=0; d<7; d++){
       let td = document.getElementById(DAY_PREF+d);
@@ -153,7 +154,7 @@ function createForms()
     submit.value = 'Submit';
     submit.type = 'submit';
     inputList.forEach((inputData)=>{
-      const [type, limit, inputNames] = inputData;
+      const [type, maxLimit, minLimit, inputNames] = inputData;
       inputNames.forEach((inputName, i)=>{
         const label = document.createElement('label');
         label.innerText = inputName+' ';
@@ -163,14 +164,15 @@ function createForms()
           input.name = inputName;
           if(type === 'text'){
             input.value = '';
-            input.maxLength = limit;
+            input.maxLength = maxLimit;
+            input.minLength = minLimit;
             input.placeholder = 'Enter '+ inputName;
           } else if(type == 'checkbox' 
-              && i >= limit){
+              && i >= maxLimit){
             input.disabled = true;
           } else if(type == 'number'){
-            input.max = limit;
-            input.min =-limit;
+            input.max = maxLimit;
+            input.min = minLimit;
           }
           label.appendChild(input);
           form.appendChild(label);
@@ -291,5 +293,5 @@ function setTime()
 }
 
 createForms();
-createNotification("Notification");
+createNotificationForm("Notification");
 
