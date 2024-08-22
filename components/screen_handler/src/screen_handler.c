@@ -114,7 +114,7 @@ void main_task(void *pv)
     int timeout = TIMEOUT_6_SEC;
     vTaskDelay(100/portTICK_PERIOD_MS);
     struct tm * timeinfo;
-    int update_brodcast_min = 0, update_count = 0;
+    int update_forecast_min = 0, update_count = 0;
     for(;;){
 
         bits = device_get_state();
@@ -122,7 +122,7 @@ void main_task(void *pv)
         service_data.cur_min = get_time_in_min(timeinfo);
 
         if(min != service_data.cur_min){
-            if(update_brodcast_min == update_count){
+            if(update_forecast_min == update_count){
                 if( !(bits & BIT_IS_TIME) ){
                     device_set_state(BIT_UPDATE_BROADCAST_DATA);
                 } 
@@ -130,10 +130,10 @@ void main_task(void *pv)
                 if( !(bits & BIT_BROADCAST_OK)){
                     device_set_state(BIT_UPDATE_BROADCAST_DATA);
                 }
-                if( !(bits&BIT_UPDATE_BROADCAST_DATA) && update_brodcast_min < 20){
-                    update_brodcast_min = update_brodcast_min + 2;
+                if( !(bits&BIT_UPDATE_BROADCAST_DATA) && update_forecast_min < 20){
+                    update_forecast_min = update_forecast_min + 2;
                 } else {
-                    update_brodcast_min = 20;
+                    update_forecast_min = 20;
                 }
                 update_count = 0;
             } else {
