@@ -4,7 +4,7 @@
 #include "driver/adc.h"
 #include "esp_log.h"
 #include "adc_reader.h"
-#include "device_system.h"
+#include "device_common.h"
 
 #include "freertos/FreeRTOS.h"
 

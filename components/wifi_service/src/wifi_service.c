@@ -1,6 +1,6 @@
 #include "wifi_service.h"
 
-#include "device_system.h"
+#include "device_common.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -13,7 +13,7 @@
 #include "sdkconfig.h"
 #include "esp_mac.h"
 #include "additional_functions.h"
-#include "device_system.h"
+#include "device_common.h"
 #include "setting_server.h"
 #include "device_macro.h"
 
@@ -158,7 +158,6 @@ int start_ap()
     wifi_mode = WIFI_MODE_AP;
     CHECK_AND_RET_ERR(esp_wifi_set_mode(WIFI_MODE_AP));
     CHECK_AND_RET_ERR(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_ap_config));
-    ESP_LOGI("", "start app");
     int res = esp_wifi_start();
     if(res == ESP_OK){
         vTaskDelay(500/portTICK_PERIOD_MS);

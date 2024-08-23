@@ -8,7 +8,7 @@
 #include "driver/ledc.h"
 #include <math.h>
 
-#include "device_system.h"
+#include "device_common.h"
 #include "periodic_task.h"
 
 

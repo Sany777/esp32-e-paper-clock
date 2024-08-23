@@ -1,7 +1,7 @@
 #include "clock_module.h"
 
 #include <time.h>
-#include "device_system.h"
+#include "device_common.h"
 #include "string.h"
 #include "esp_sntp.h"
 #include "wifi_service.h"
@@ -110,17 +110,8 @@ void stop_sntp()
 // %Z: Часовий пояс (UTC, GMT, ...)
 const char* snprintf_time(const char *format)
 {
-    const char *err_res = "Err";
+    const char *err_res = "";
     static char text_buf[100];
-    unsigned bits = device_get_state();
-    if(!(bits&BIT_IS_TIME)){
-        if( !( bits&BIT_IS_STA_CONNECTION) )
-            return err_res;
-        init_sntp();
-        bits = device_wait_bits(BIT_IS_TIME);
-        if(! (bits&BIT_IS_TIME ))
-            return err_res;
-    } 
     struct tm *timeinfo = get_time_tm();
     strftime(text_buf, sizeof(text_buf), format, timeinfo);
     return text_buf;

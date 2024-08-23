@@ -14,7 +14,7 @@
 #include "string.h"
 #include "device_macro.h"
 #include "wifi_service.h"
-#include "device_system.h"
+#include "device_common.h"
 
 
 static httpd_handle_t server;

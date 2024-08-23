@@ -3,9 +3,9 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "i2c_module.h"
+#include "i2c_adapter.h"
 #include "device_macro.h"
-#include "device_system.h"
+#include "device_common.h"
 
 
 

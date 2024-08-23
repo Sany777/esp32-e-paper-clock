@@ -1,8 +1,8 @@
 #include "screen_handler.h"
 
 #include "periodic_task.h"
-#include "device_system.h"
-#include "device_system.h"
+#include "device_common.h"
+#include "device_common.h"
 #include "MPU6500.h"
 #include "clock_http_client.h"
 #include "sound_generator.h"
@@ -86,7 +86,7 @@ enum {
 static int next_screen;
 
 
-bool wait_moving(bool wait_move, int timeout_ms)
+static bool wait_moving(bool wait_move, int timeout_ms)
 {
     int val = !wait_move;
     while(timeout_ms){
@@ -101,7 +101,7 @@ bool wait_moving(bool wait_move, int timeout_ms)
 
 
 
-void main_task(void *pv)
+static void main_task(void *pv)
 {
     unsigned bits;
     int cmd;
@@ -114,30 +114,26 @@ void main_task(void *pv)
     int timeout = TIMEOUT_6_SEC;
     vTaskDelay(100/portTICK_PERIOD_MS);
     struct tm * timeinfo;
-    int update_forecast_min = 0, update_count = 0;
+    int UPDATE_DATA_MIN = 0, update_count = 0, min_upd = -1;
     for(;;){
-
-        bits = device_get_state();
-        timeinfo = get_time_tm();
-        service_data.cur_min = get_time_in_min(timeinfo);
-
-        if(min != service_data.cur_min){
-            if(update_forecast_min == update_count){
-                if( !(bits & BIT_IS_TIME) ){
-                    device_set_state(BIT_UPDATE_BROADCAST_DATA);
-                } 
-
-                if( !(bits & BIT_BROADCAST_OK)){
-                    device_set_state(BIT_UPDATE_BROADCAST_DATA);
-                }
-                if( !(bits&BIT_UPDATE_BROADCAST_DATA) && update_forecast_min < 20){
-                    update_forecast_min = update_forecast_min + 2;
-                } else {
-                    update_forecast_min = 20;
+        service_data.cur_min = get_time_in_min(get_time_tm());
+        if(min_upd != service_data.cur_min){
+            min_upd = service_data.cur_min;
+            if(UPDATE_DATA_MIN <= update_count){
+                device_set_state(BIT_WAIT_PROCCESS|BIT_UPDATE_BROADCAST_DATA);
+                bits = device_wait_bits(BIT_WAIT_PROCCESS);
+                if(bits & BIT_BROADCAST_OK){
+                    UPDATE_DATA_MIN = 30;
+                } else if(UPDATE_DATA_MIN == 30){
+                    UPDATE_DATA_MIN = 1;
+                } else if(UPDATE_DATA_MIN < 5){
+                    UPDATE_DATA_MIN += 1;
+                }  else if(UPDATE_DATA_MIN < 25){
+                    UPDATE_DATA_MIN += 3;
                 }
                 update_count = 0;
             } else {
-            update_count += 1; 
+                update_count += 1; 
             }
         }
 
@@ -194,7 +190,11 @@ void main_task(void *pv)
             } else if(min != service_data.cur_min) {
                 min = service_data.cur_min;
                 cmd = CMD_UPDATE_DATA; 
-                if(is_signale(service_data.cur_min, timeinfo->tm_wday));
+                if(bits & BIT_IS_TIME){
+                    if(is_signale(service_data.cur_min, timeinfo->tm_wday)){
+                        start_alarm();
+                    }
+                }
             } else if(!exit && get_timer_ms() > timeout) {
                 exit = true;
                 cmd = CMD_UPDATE_DATA;
@@ -257,7 +257,7 @@ void main_task(void *pv)
 
 
 
-void service_task(void *pv)
+static void service_task(void *pv)
 {
     uint32_t bits;
     int timeout = 0;
@@ -300,8 +300,9 @@ void service_task(void *pv)
 
         if(bits&BIT_UPDATE_BROADCAST_DATA || bits&BIT_INIT_SNTP){
             if(connect_sta(device_get_ssid(),device_get_pwd()) == ESP_OK){
-                if(bits&BIT_INIT_SNTP){
+                if(! (bits&BIT_IS_TIME) || bits&BIT_INIT_SNTP){
                     init_sntp();
+                    device_wait_bits(BIT_IS_TIME);
                     bits = device_clear_state(BIT_INIT_SNTP);
                 }
                 if(bits&BIT_UPDATE_BROADCAST_DATA){
@@ -310,9 +311,9 @@ void service_task(void *pv)
                     } else {
                         device_clear_state(BIT_BROADCAST_OK);
                     }
-                    device_clear_state(BIT_UPDATE_BROADCAST_DATA);
                 }
             }
+            device_clear_state(BIT_UPDATE_BROADCAST_DATA|BIT_INIT_SNTP);
         }
         device_clear_state(BIT_WAIT_PROCCESS);
     }
@@ -345,7 +346,7 @@ int tasks_init()
 
 
 
-int get_timer_min(int pos)
+static int get_timer_min(int pos)
 {
     if(pos == TURN_LEFT || pos == TURN_RIGHT || pos == TURN_UPSIDE_DOWN){
         return pos*10;
@@ -430,7 +431,7 @@ static void timer_func(int cmd_id, int pos_data)
 }
 
 
-void setting_func(int cmd_id, int pos_data)
+static void setting_func(int cmd_id, int pos_data)
 {
     unsigned bits = device_get_state();
 
@@ -454,10 +455,11 @@ void setting_func(int cmd_id, int pos_data)
 }
 
 
-void main_func(int cmd_id, int pos_data)
+static void main_func(int cmd_id, int pos_data)
 {
     static int i = 0;
     float t, hum;
+    unsigned bits = device_get_state();
     if(pos_data == TURN_UP){
         next_screen = SCREEN_BROADCAST_DETAIL;
         return;
@@ -484,14 +486,20 @@ void main_func(int cmd_id, int pos_data)
         epaper_printf(90, 25, 24, COLORED, "%.1fC*", t);
         epaper_printf(90, 50, 24, COLORED, "%.1f%%", hum);
     }
-    epaper_printf(60, 75, 24, COLORED, "%.1f C*", service_data.temp_list[0]);
-    epaper_print_str(10, 100, 20, COLORED, service_data.desciption);
-    epaper_printf(30, 125, 48, COLORED, snprintf_time("%H:%M"));
-    epaper_printf(50, 172, 24, COLORED, snprintf_time("%d %a"));
+    if(bits & BIT_BROADCAST_OK){
+        epaper_printf(60, 75, 24, COLORED, "%.1f C*", service_data.temp_list[0]);
+        epaper_print_str(10, 100, 20, COLORED, service_data.desciption);
+    } 
+    if(bits & BIT_IS_TIME) {
+        epaper_printf(30, 125, 48, COLORED, snprintf_time("%H:%M"));
+        epaper_printf(50, 172, 24, COLORED, snprintf_time("%d %a"));
+    } else {
+        epaper_printf(30, 125, 48, COLORED, snprintf_time("--:--"));
+    }
 }
 
 
-void device_info_func(int cmd_id, int pos_data)
+static void device_info_func(int cmd_id, int pos_data)
 {
     unsigned bits = device_get_state();
     draw_horizontal_line(0, 200, 52, 2, COLORED);
@@ -515,18 +523,14 @@ void device_info_func(int cmd_id, int pos_data)
 }
 
 
-void weather_info_func(int cmd_id, int pos_data)
+static void weather_info_func(int cmd_id, int pos_data)
 {
     if(pos_data == TURN_NORMAL){
         next_screen = SCREEN_MAIN;
         return;
     }
-    if(pos_data == TURN_LEFT || pos_data == TURN_RIGHT){
+    if(pos_data == TURN_LEFT || pos_data == TURN_RIGHT || pos_data == TURN_UPSIDE_DOWN){
         next_screen = SCREEN_TIMER;
-        return;
-    }
-    if(pos_data == TURN_UPSIDE_DOWN){
-        next_screen = SCREEN_SETTING;
         return;
     }
     if(cmd_id == CMD_INC || cmd_id == CMD_DEC){
@@ -534,7 +538,7 @@ void weather_info_func(int cmd_id, int pos_data)
     }
 
     epaper_print_str(10, 40, 24, COLORED, service_data.desciption);
-    unsigned h = service_data.cur_min / 60;
+    unsigned h = service_data.updated_hour;
     for(int i=0; i<TEMP_LIST_SIZE; ++i){
         if(h>23)h %= 24;
         epaper_printf(5, 70+i*25, 24, COLORED, "%c%d:00 %.1fC*", 

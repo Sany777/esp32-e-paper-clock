@@ -1,7 +1,7 @@
 #include "clock_http_client.h"
 
 #include "esp_http_client.h"
-#include "device_system.h"
+#include "device_common.h"
 
 #define SIZE_URL_BUF 250
 #define MAX_KEY_NUM 10
@@ -151,6 +151,7 @@ int get_weather(const char *city, const char *api_key)
             }
             res = ESP_OK;
         }
+        service_data.updated_hour = service_data.cur_min/60;
     }
     
     esp_http_client_cleanup(client);

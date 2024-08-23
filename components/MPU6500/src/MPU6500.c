@@ -1,7 +1,7 @@
 #include "MPU6500.h"
 
 
-#include "i2c_module.h"
+#include "i2c_adapter.h"
 #include "string.h"
 #include "stdint.h"
 #include <stdio.h>
@@ -10,7 +10,7 @@
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "math.h"
-#include "device_system.h"
+#include "device_common.h"
 #include "device_macro.h"
 
 unsigned accel_x;
