@@ -12,6 +12,12 @@
 #define INTERVAL_10_HOUR   (1000*60*60*10)
 #define INTERVAL_1_MIN      (1000*60*1)
 
+int update_time_val()
+{
+    service_data.cur_min = get_time_in_min(get_time_tm());
+    return service_data.cur_min;
+}
+
 int get_time_in_min(struct tm* tinfo)
 {
     return tinfo->tm_hour*60 + tinfo->tm_min;
@@ -110,7 +116,6 @@ void stop_sntp()
 // %Z: Часовий пояс (UTC, GMT, ...)
 const char* snprintf_time(const char *format)
 {
-    const char *err_res = "";
     static char text_buf[100];
     struct tm *timeinfo = get_time_tm();
     strftime(text_buf, sizeof(text_buf), format, timeinfo);

@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include "sound_generator.h"
 #include "freertos/FreeRTOS.h"

@@ -4,7 +4,7 @@
 #include "device_common.h"
 #include "device_common.h"
 #include "MPU6500.h"
-#include "clock_http_client.h"
+#include "forecast_http_client.h"
 #include "sound_generator.h"
 #include "AHT21.h"
 #include "adc_reader.h"
@@ -116,7 +116,7 @@ static void main_task(void *pv)
     struct tm * timeinfo;
     int UPDATE_DATA_MIN = 0, update_count = 0, min_upd = -1;
     for(;;){
-        service_data.cur_min = get_time_in_min(get_time_tm());
+        update_time_val();
         if(min_upd != service_data.cur_min){
             min_upd = service_data.cur_min;
             if(UPDATE_DATA_MIN <= update_count){
@@ -173,8 +173,7 @@ static void main_task(void *pv)
                 pos_data = NO_DATA;
             }
 
-            timeinfo = get_time_tm();
-            service_data.cur_min = get_time_in_min(timeinfo);
+            update_time_val();
 
             if(screen != next_screen) {
                 if(next_screen >= SCREEN_LIST_SIZE){
@@ -191,6 +190,7 @@ static void main_task(void *pv)
                 min = service_data.cur_min;
                 cmd = CMD_UPDATE_DATA; 
                 if(bits & BIT_IS_TIME){
+                    timeinfo = get_time_tm();
                     if(is_signale(service_data.cur_min, timeinfo->tm_wday)){
                         start_alarm();
                     }
@@ -389,12 +389,12 @@ static void timer_func(int cmd_id, int pos_data)
         min_counter = init_min;
     }
 
-    epaper_printf(70, 35, 34, COLORED, "%d:%0.2d", 
+    epaper_printf_centered(35, 34, COLORED, "%d:%0.2d", 
                     service_data.cur_min/60, 
                     service_data.cur_min%60);
                     
     if(AHT21_read_data(&t, NULL) == ESP_OK){
-        epaper_printf(67, 175, 20, COLORED, "%.1fC*", t);
+        epaper_printf_centered(175, 20, COLORED, "%.1fC*", t);
     }
     
 
@@ -419,14 +419,15 @@ static void timer_func(int cmd_id, int pos_data)
     }
 
     if(min_counter){
-        epaper_printf(70, 75, 64, COLORED, "%i", min_counter);
+        
+        epaper_printf_centered(75, 64, COLORED, "%i", min_counter);
         if(pausa){
-            epaper_print_str(85, 135, 20, COLORED, "Pausa");
+            epaper_print_centered_str(135, 20, COLORED, "Pausa");
         } else {
-            epaper_print_str(85, 135, 20, COLORED, "min");
+            epaper_print_centered_str(135, 20, COLORED, "min");
         }
     } else {
-        epaper_print_str(30, 90, 48, COLORED, "Stop");
+        epaper_print_centered_str( 90, 48, COLORED, "Stop");
     }  
 }
 
@@ -439,17 +440,17 @@ static void setting_func(int cmd_id, int pos_data)
         if(cmd_id == CMD_INC){
             device_clear_state(BIT_SERVER_RUN|BIT_START_SERVER);
         }
-        epaper_print_str(10, 20, 16, COLORED, "Server run!");
-        epaper_print_str(3, 40, 16, COLORED, "http://192.168.4.1");
-        epaper_print_str(3, 60, 16, COLORED, "SSID:" CONFIG_WIFI_AP_SSID);
-        epaper_print_str(3, 80, 16, COLORED, "Password:" CONFIG_WIFI_AP_PASSWORD);
+        epaper_print_centered_str(20, 16, COLORED, "Server run!");
+        epaper_print_centered_str(40, 16, COLORED, "http://192.168.4.1");
+        epaper_print_centered_str(60, 16, COLORED, "SSID:" CONFIG_WIFI_AP_SSID);
+        epaper_print_centered_str(80, 16, COLORED, "Password:" CONFIG_WIFI_AP_PASSWORD);
     } else {
         if(cmd_id == CMD_DEC){
             device_set_state(BIT_START_SERVER|BIT_WAIT_PROCCESS);
         }
-        epaper_print_str(30,40,16, COLORED, "Press button");
-        epaper_print_str(30,60,16, COLORED, "for starting");
-        epaper_print_str(30,80,16, COLORED, "settings server");
+        epaper_print_centered_str(40,16, COLORED, "Press button");
+        epaper_print_centered_str(60,16, COLORED, "for starting");
+        epaper_print_centered_str(80,16, COLORED, "settings server");
     }
 
 }
@@ -487,8 +488,11 @@ static void main_func(int cmd_id, int pos_data)
         epaper_printf(90, 50, 24, COLORED, "%.1f%%", hum);
     }
     if(bits & BIT_BROADCAST_OK){
-        epaper_printf(60, 75, 24, COLORED, "%.1f C*", service_data.temp_list[0]);
-        epaper_print_str(10, 100, 20, COLORED, service_data.desciption);
+        epaper_printf(20, 75, 24, COLORED, "%.1fC* %.0f%%", 
+                        service_data.temp_list[0], 
+                        service_data.pop_list[0]);
+        epaper_print_centered_str(100, 20, COLORED, 
+                        service_data.desciption);
     } 
     if(bits & BIT_IS_TIME) {
         epaper_printf(30, 125, 48, COLORED, snprintf_time("%H:%M"));
@@ -537,13 +541,14 @@ static void weather_info_func(int cmd_id, int pos_data)
         device_set_state(BIT_UPDATE_BROADCAST_DATA);
     }
 
-    epaper_print_str(10, 40, 24, COLORED, service_data.desciption);
-    unsigned h = service_data.updated_hour;
-    for(int i=0; i<TEMP_LIST_SIZE; ++i){
+    epaper_print_centered_str(40, 20, COLORED, service_data.desciption);
+    device_wait_bits(BIT_IS_TIME);
+    update_time_val();
+    unsigned h = service_data.cur_min / 60;
+    for(int i=0; i<BRODCAST_LIST_SIZE; ++i){
         if(h>23)h %= 24;
-        epaper_printf(5, 70+i*25, 24, COLORED, "%c%d:00 %.1fC*", 
-                            h>10 ? h/10+'0':' ', 
-                            h%10, 
+        epaper_printf(1, 70+i*25, 20, COLORED, "%2.2d: %.1fC*/%.0f%%", 
+                            h, 
                             service_data.temp_list[i]);
         h += 3;
     }

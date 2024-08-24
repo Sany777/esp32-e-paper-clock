@@ -17,7 +17,7 @@ void stop_sntp();
 const char* snprintf_time(const char *format);
 void set_time_ms(long long time_ms);
 void set_offset(int offset_hour);
-
+int update_time_val();
 
 
 

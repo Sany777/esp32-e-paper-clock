@@ -13,7 +13,6 @@
 #define SCREEN_HEIGHT   200
 #define SCREEN_WIDTH    200
 
-#define FORCE_UPDATE_COUNT_NUM 5
 static Paint *paint;
 static Epaper epd;
 
@@ -54,6 +53,26 @@ void epaper_print_str(int hor, int ver, int font_size, color_t colored, const ch
 { 
     sFONT * font = epaper_get_font(font_size);
     paint->DrawStringAt(hor, ver, str, font, colored);
+}
+
+void epaper_print_centered_str(int ver, int font_size, color_t colored, const char *str)
+{
+    int h = 5;
+    sFONT * font = epaper_get_font(font_size);
+    int str_width = strlen(str) * font->Width;
+    if(str_width < 190){
+        h += (190 - str_width) / 2;  
+    }
+    epaper_print_str(h, ver, font_size, colored, str);  
+}
+
+void epaper_printf_centered(int ver, int font_size, color_t colored, const char *format, ...)
+{
+    va_list args;
+    va_start (args, format);
+    vsnprintf (text_buf, sizeof(text_buf), format, args);
+    va_end (args);
+    epaper_print_centered_str(ver, font_size, colored, text_buf);
 }
 
 void epaper_printf(int hor, int ver, int font_size, color_t colored, const char *format, ...)

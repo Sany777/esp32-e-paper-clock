@@ -1,6 +1,7 @@
-#include "clock_http_client.h"
+#include "forecast_http_client.h"
 
 #include "esp_http_client.h"
+#include "clock_module.h"
 #include "device_common.h"
 
 #define SIZE_URL_BUF 250
@@ -113,7 +114,7 @@ static void split(char *data_buf, size_t data_size, const char *split_chars_str)
 int get_weather(const char *city, const char *api_key)
 {
     int res = ESP_FAIL;
-    char **feels_like = NULL, **description = NULL; 
+    char **feels_like_list = NULL, **description = NULL, **pop_list; 
 
     if(strnlen(city, MAX_STR_LEN) == 0 || strnlen(api_key, MAX_STR_LEN) != API_LEN)
         return ESP_FAIL;
@@ -137,21 +138,22 @@ int get_weather(const char *city, const char *api_key)
     const size_t data_size = esp_http_client_get_content_length(client);
     if(data_size){
         network_buf[data_size] = 0;
-        const size_t feels_like_num = get_value_ptrs(&feels_like, network_buf, data_size, "\"feels_like\":");
+        const size_t pop_num = get_value_ptrs(&pop_list, network_buf, data_size, "\"pop\":");
+        const size_t feels_like_num = get_value_ptrs(&feels_like_list, network_buf, data_size, "\"feels_like\":");
         const size_t description_num = get_value_ptrs(&description, network_buf, data_size, "\"description\":\"");
         split(network_buf, data_size, "},\"");
-        if(feels_like_num && description_num){
-            if(description != NULL){
-                strncpy(service_data.desciption, description[0], sizeof(service_data.desciption));
-            }
-            if(feels_like_num && feels_like != NULL){
-                for(int i=0; i<feels_like_num && i<TEMP_LIST_SIZE; ++i){
-                    service_data.temp_list[i] = atof(feels_like[i]);
+        if(pop_list && feels_like_list && description){
+            strncpy(service_data.desciption, description[0], sizeof(service_data.desciption));
+            for(int i=0; i<BRODCAST_LIST_SIZE; ++i){
+                if(i<feels_like_num){
+                    service_data.temp_list[i] = atof(feels_like_list[i]);
+                }
+                if(i<pop_num){
+                    service_data.pop_list[i] = atof(pop_list[i])*100;
                 }
             }
             res = ESP_OK;
         }
-        service_data.updated_hour = service_data.cur_min/60;
     }
     
     esp_http_client_cleanup(client);
@@ -159,9 +161,13 @@ int get_weather(const char *city, const char *api_key)
         free(description);
         description = NULL;
     }
-    if(feels_like){
-        free(feels_like);
-        feels_like = NULL;
+    if(feels_like_list){
+        free(feels_like_list);
+        feels_like_list = NULL;
+    }
+    if(pop_list){
+        free(pop_list);
+        pop_list = NULL;
     }
 
     return res;

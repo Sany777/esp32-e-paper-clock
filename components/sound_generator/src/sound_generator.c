@@ -17,7 +17,7 @@
 #define LEDC_CHANNEL            LEDC_CHANNEL_0
 #define LEDC_DUT_RES            LEDC_TIMER_13_BIT 
 #define DEFAULT_DUTY            (50) //  50%
-#define DEFAULT_FREQUENCY       (200) // 2.6 кГц
+#define DEFAULT_FREQUENCY       (2000) // 2 кГц
 #define DEFAULT_DELAY           100
 
 
