@@ -37,6 +37,7 @@ static const char *NOTIFY_DATA_NAME = "notify_data";
 
 static int read_data();
 
+
 static void update_time_handler()
 {
     static int sec;
@@ -46,7 +47,6 @@ static void update_time_handler()
         device_set_state(BIT_NEW_MIN);
     }
 }
-
 
 void device_set_offset(int time_offset)
 {
@@ -123,7 +123,6 @@ void device_set_notify_data(unsigned *schema, unsigned *notif_data)
     changes_notify_data = true;
     changes_main_data = true;
 }
-
 
 int device_commit_changes()
 {
