@@ -12,15 +12,11 @@
 #define INTERVAL_10_HOUR   (1000*60*60*10)
 #define INTERVAL_1_MIN      (1000*60*1)
 
-int update_time_val()
-{
-    service_data.cur_min = get_time_in_min(get_time_tm());
-    return service_data.cur_min;
-}
 
-int get_time_in_min(struct tm* tinfo)
+
+int get_time_sec(struct tm* tinfo)
 {
-    return tinfo->tm_hour*60 + tinfo->tm_min;
+    return tinfo->tm_hour*3600 + tinfo->tm_min*60 + tinfo->tm_sec;
 }
 
 struct tm* get_time_tm(void)
@@ -52,7 +48,7 @@ void set_offset(int offset_hour)
 
 static void set_time_cb(struct timeval *tv)
 {
-    unsigned bits = device_set_state(BIT_IS_TIME); 
+    unsigned bits = device_set_state(BIT_IS_TIME|BIT_SNTP_OK); 
     if(bits & BIT_OFFSET_ENABLE){
         tv->tv_sec += 60 * 60 * device_get_offset();
         settimeofday(tv, NULL);
@@ -65,7 +61,7 @@ static void set_time_cb(struct timeval *tv)
     if(esp_sntp_get_sync_interval() < INTERVAL_10_HOUR){
         esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
     }
-    device_set_state(BIT_SNTP_OK|BIT_NEW_DATA);
+    device_set_state(BIT_NEW_DATA);
 }
 
 

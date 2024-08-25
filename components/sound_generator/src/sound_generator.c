@@ -1,8 +1,6 @@
 #include "sound_generator.h"
 
 
-#define SOC_LEDC_SUPPORT_HS_MODE 1 
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "driver/ledc.h"
@@ -49,7 +47,7 @@ static void start_pwm(unsigned duty);
 static void IRAM_ATTR continue_signale()
 {
     ledc_timer_resume(ledc_timer.speed_mode, ledc_timer.timer_num);
-    periodic_task_isr_create(signale_stop, _delay/2, 1);
+    create_periodic_isr_task(signale_stop, _delay/2, 1);
 }
 
 void start_single_signale(unsigned delay, unsigned freq)
@@ -69,7 +67,7 @@ void alarm()
 
 void start_alarm()
 {
-    periodic_task_isr_create(alarm, 1000, 7);
+    create_periodic_isr_task(alarm, 1000, 7);
 }
 
 void start_signale_series(unsigned delay, unsigned count, unsigned freq)
@@ -79,9 +77,9 @@ void start_signale_series(unsigned delay, unsigned count, unsigned freq)
     if(delay == 0)_delay = DEFAULT_DELAY;
     else _delay = delay;
     if(count>1){
-        periodic_task_isr_create(continue_signale, _delay, count-1);
+        create_periodic_isr_task(continue_signale, _delay, count-1);
     }
-    periodic_task_isr_create(signale_stop, _delay/2, 1);
+    create_periodic_isr_task(signale_stop, _delay/2, 1);
 }
 
 static IRAM_ATTR void signale_stop()

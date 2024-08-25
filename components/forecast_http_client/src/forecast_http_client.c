@@ -3,6 +3,7 @@
 #include "esp_http_client.h"
 #include "clock_module.h"
 #include "device_common.h"
+#include "device_macro.h"
 
 #define SIZE_URL_BUF 250
 #define MAX_KEY_NUM 10

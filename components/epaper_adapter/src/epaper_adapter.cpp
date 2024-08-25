@@ -30,8 +30,8 @@ void epaper_init()
     if(!paint){
         rotate = ROTATE_0;
         paint = new Paint(screen, epd.width, epd.height);
-        epd.LDirInit();
     }
+    epd.LDirInit();
 }
 
 static sFONT* epaper_get_font(int font_num)
@@ -39,7 +39,7 @@ static sFONT* epaper_get_font(int font_num)
     switch(font_num){
         case 48: return &Font48; 
         case 34: return &Font34; 
-        case 12:return &Font12;
+        case 12: return &Font12;
         case 16: return &Font16;
         case 20: return &Font20;
         case 24: return &Font24;

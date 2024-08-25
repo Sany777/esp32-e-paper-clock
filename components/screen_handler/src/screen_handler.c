@@ -23,14 +23,13 @@
 #include "portmacro.h"
 
 
-#include "driver/gpio.h"
 #include "esp_log.h"
 
 
 
 enum FuncId{
     SCREEN_MAIN,
-    SCREEN_BROADCAST_DETAIL,
+    SCREEN_FORECAST_DETAIL,
     SCREEN_TIMER,
     SCREEN_SETTING,
     SCREEN_DEVICE_INFO,
@@ -69,7 +68,6 @@ static const handler_func_t func_list[] = {
 
 static const int SCREEN_LIST_SIZE = sizeof(func_list)/sizeof(func_list[0]);
 
-
 enum {
     CMD_INC = BUT_RIGHT,
     CMD_PRESS = BUT_PRESS,
@@ -79,24 +77,10 @@ enum {
     CMD_UPDATE_DATA,
     CMD_UPDATE_TIME,
     CMD_UPDATE_POS,
+    CMD_UPDATE_TIMER_TIME
 };
 
-
-
 static int next_screen;
-
-
-static bool wait_moving(bool wait_move, int timeout_ms)
-{
-    int val = !wait_move;
-    while(timeout_ms){
-        if(gpio_get_level(GPIO_WAKEUP_PIN) == val)
-            return true;
-        vTaskDelay(100/portTICK_PERIOD_MS);
-        timeout_ms -= 100;
-    }
-    return false;
-}
 
 
 
@@ -105,44 +89,19 @@ static void main_task(void *pv)
 {
     unsigned bits;
     int cmd;
-    int min = -1;
     int pos_data, last_pos = TURN_NORMAL;
     int screen = -1;
     uint64_t sleep_time_ms;
     next_screen = SCREEN_MAIN;
-    bool but_input, exit, refresh = true;
+    bool but_input, exit, new_time = false;
     int timeout = TIMEOUT_6_SEC;
+    device_set_state(BIT_UPDATE_FORECAST_DATA);
     vTaskDelay(100/portTICK_PERIOD_MS);
-    struct tm * timeinfo;
-    int UPDATE_DATA_MIN = 0, update_count = 0, min_upd = -1;
     for(;;){
-        update_time_val();
-        if(min_upd != service_data.cur_min){
-            min_upd = service_data.cur_min;
-            if(UPDATE_DATA_MIN <= update_count){
-                device_set_state(BIT_WAIT_PROCCESS|BIT_UPDATE_BROADCAST_DATA);
-                bits = device_wait_bits(BIT_WAIT_PROCCESS);
-                if(bits & BIT_BROADCAST_OK){
-                    UPDATE_DATA_MIN = 30;
-                } else if(UPDATE_DATA_MIN == 30){
-                    UPDATE_DATA_MIN = 1;
-                } else if(UPDATE_DATA_MIN < 5){
-                    UPDATE_DATA_MIN += 1;
-                }  else if(UPDATE_DATA_MIN < 25){
-                    UPDATE_DATA_MIN += 3;
-                }
-                update_count = 0;
-            } else {
-                update_count += 1; 
-            }
-        }
 
         but_input = exit = false;
         start_timer();
         do{
-
-            vTaskDelay(100/portTICK_PERIOD_MS);
-            
             cmd = device_get_joystick_btn();
 
             if(cmd != NO_DATA){
@@ -153,11 +112,7 @@ static void main_task(void *pv)
                 }
             }
 
-            if(but_input){
-                bits = device_get_state();
-            } else {
-                bits = device_wait_bits_untile(BIT_WAIT_MOVING, 3000/portTICK_PERIOD_MS);
-            }
+            bits = device_get_state();
 
             pos_data = mpu_get_rotate();
 
@@ -173,7 +128,6 @@ static void main_task(void *pv)
                 pos_data = NO_DATA;
             }
 
-            update_time_val();
 
             if(screen != next_screen) {
                 if(next_screen >= SCREEN_LIST_SIZE){
@@ -186,49 +140,52 @@ static void main_task(void *pv)
             } else if(bits & BIT_NEW_DATA) {
                 cmd = CMD_UPDATE_DATA;
                 device_clear_state(BIT_NEW_DATA);
-            } else if(min != service_data.cur_min) {
-                min = service_data.cur_min;
-                cmd = CMD_UPDATE_DATA; 
-                if(bits & BIT_IS_TIME){
-                    timeinfo = get_time_tm();
-                    if(is_signale(service_data.cur_min, timeinfo->tm_wday)){
-                        start_alarm();
+            } else if(bits&BIT_NEW_MIN) {
+                device_clear_state(BIT_NEW_MIN);
+                cmd = CMD_UPDATE_TIME; 
+                if(bits & BIT_IS_TIME && !(bits & BIT_NOTIF_DISABLE) ){
+                    if(is_signale(get_time_tm())){
+                        start_signale_series(75, 7, 2000);
                     }
                 }
-            } else if(!exit && get_timer_ms() > timeout) {
+            } else if( ! (bits&BIT_WAIT_PROCCESS)
+                        && ! (bits&BIT_WAIT_BUT_INPUT)
+                            && !exit 
+                                && get_timer_ms() > timeout){
                 exit = true;
                 cmd = CMD_UPDATE_DATA;
-                refresh = true;
             }
             
             if(cmd != NO_DATA){
                 epaper_clear(UNCOLORED); 
                 func_list[screen](cmd, pos_data);
                 bits = device_get_state();
-                if(screen == next_screen){
-                    if(refresh){
-                        refresh = false;
-                        epaper_display_all();
-                    } else {
-                        epaper_display_part();
-                    }
+                if(exit){
+                    epaper_display_all();
+                } else {
+                    epaper_display_part();
                 }
-            } 
+                vTaskDelay(400/portTICK_PERIOD_MS);
+                epaper_wait();
+            }
 
-            
-        } while(!exit 
-                || cmd != NO_DATA 
-                || bits & BIT_WAIT_PROCCESS
-                || bits & BIT_WAIT_BUT_INPUT);
+            if( new_time == false
+                && exit 
+                && cmd == NO_DATA 
+                && !(bits & BIT_WAIT_PROCCESS)
+                && !(bits & BIT_WAIT_BUT_INPUT)
+                && !(bits&BIT_NEW_MIN) ){
+                    break;
+                }
+
+            vTaskDelay(100/portTICK_PERIOD_MS);
+
+        } while(1);
         
-        
-        vTaskDelay(100/portTICK_PERIOD_MS);
         wifi_stop();
-        device_clear_state(BIT_IS_AP_MODE|BIT_IS_STA_CONNECTION);
-        epaper_wait();
+        
         if(pos_data == mpu_get_rotate()){
             const int working_time = get_timer_ms();
-
             if(pos_data == TURN_DOWN){
                 sleep_time_ms = TIMEOUT_4_HOUR;
             } else if( (ONE_MINUTE - working_time) > 100){
@@ -244,7 +201,7 @@ static void main_task(void *pv)
             device_set_pin(EP_ON_PIN, 1);
             device_set_pin(AHT21_EN_PIN, 1);
             vTaskDelay(pdMS_TO_TICKS(500));
-            if(wait_moving(true, 500)){
+            if(device_wait_moving_end(500)){
                 timeout = TIMEOUT_6_SEC;
             } else {
                 timeout = 1;
@@ -256,6 +213,11 @@ static void main_task(void *pv)
 }
 
 
+static void update_forecast_handler()
+{
+    device_set_state(BIT_UPDATE_FORECAST_DATA);
+}
+
 
 static void service_task(void *pv)
 {
@@ -263,8 +225,9 @@ static void service_task(void *pv)
     int timeout = 0;
     bool open_sesion = false;
     vTaskDelay(100/portTICK_PERIOD_MS);
+    int fail_count = 0;
     for(;;){
-        device_wait_bits_untile(BIT_UPDATE_BROADCAST_DATA
+        device_wait_bits_untile(BIT_UPDATE_FORECAST_DATA
                             | BIT_INIT_SNTP
                             | BIT_START_SERVER, 
                             portMAX_DELAY);
@@ -272,48 +235,69 @@ static void service_task(void *pv)
         bits = device_set_state(BIT_WAIT_PROCCESS);
 
         if(bits & BIT_START_SERVER){
-            if(start_ap() == ESP_OK && init_server(network_buf) == ESP_OK){
-                device_clear_state(BIT_IS_STA_CONNECTION);
-                device_set_state(BIT_SERVER_RUN|BIT_NEW_DATA);
-                open_sesion = false;
-                while(bits = device_get_state(), bits&BIT_SERVER_RUN){
-                    if(open_sesion){
-                        if(!(bits&BIT_IS_AP_CONNECTION) ){
+            if(start_ap() == ESP_OK ){
+                bits = device_wait_bits(BIT_IS_AP_CONNECTION);
+                if(bits & BIT_IS_AP_CONNECTION && init_server(network_buf) == ESP_OK){
+                    device_set_state(BIT_NEW_DATA|BIT_SERVER_RUN);
+                    open_sesion = false;
+                    while(bits = device_get_state(), bits&BIT_SERVER_RUN){
+                        if(open_sesion){
+                            if(!(bits&BIT_IS_AP_CLIENT) ){
+                                device_clear_state(BIT_SERVER_RUN);
+                            }
+                        } else if(bits&BIT_IS_AP_CLIENT){
+                            open_sesion = true;
+                        } else if(timeout>600){
                             device_clear_state(BIT_SERVER_RUN);
+                        } else {
+                            timeout += 1;
                         }
-                    } else if(bits&BIT_IS_AP_CONNECTION){
-                        open_sesion = true;
-                    } else if(timeout>600){
-                        device_clear_state(BIT_SERVER_RUN);
-                    } else {
-                        timeout += 1;
+                        vTaskDelay(100/portTICK_PERIOD_MS);
                     }
-                    vTaskDelay(100/portTICK_PERIOD_MS);
+                    deinit_server();
+                    device_commit_changes();
+                    vTaskDelay(1000/portTICK_PERIOD_MS);
                 }
-                deinit_server();
-                device_commit_changes();
-                vTaskDelay(1000/portTICK_PERIOD_MS);
             }
             device_clear_state(BIT_START_SERVER);
             bits = device_set_state(BIT_NEW_DATA);
         }
 
-        if(bits&BIT_UPDATE_BROADCAST_DATA || bits&BIT_INIT_SNTP){
+        if(bits&BIT_UPDATE_FORECAST_DATA || bits&BIT_INIT_SNTP){
             if(connect_sta(device_get_ssid(),device_get_pwd()) == ESP_OK){
                 if(! (bits&BIT_IS_TIME) || bits&BIT_INIT_SNTP){
                     init_sntp();
                     device_wait_bits(BIT_IS_TIME);
                     bits = device_clear_state(BIT_INIT_SNTP);
                 }
-                if(bits&BIT_UPDATE_BROADCAST_DATA){
+                if(bits&BIT_UPDATE_FORECAST_DATA){
                     if(get_weather(device_get_city_name(),device_get_api_key()) == ESP_OK){
-                        device_set_state(BIT_BROADCAST_OK|BIT_NEW_DATA);
+                        if(! (bits&BIT_FORECAST_OK) ){
+                            create_periodic_task(update_forecast_handler, 60*30, FOREVER);
+                        }
+                        device_set_state(BIT_FORECAST_OK|BIT_NEW_DATA);
                     } else {
-                        device_clear_state(BIT_BROADCAST_OK);
+                        if(bits&BIT_FORECAST_OK){
+                            fail_count = 5;
+                        }
+                        create_periodic_task(update_forecast_handler, fail_count*60, FOREVER);
+                        if(fail_count < 30){
+                            fail_count += 5;
+                        }
+                        device_clear_state(BIT_FORECAST_OK);
                     }
                 }
+            } else {
+                if(bits&BIT_FORECAST_OK){
+                    fail_count = 1;
+                }
+                if(fail_count < 25){
+                    create_periodic_task(update_forecast_handler, fail_count*60, FOREVER);
+                    fail_count += fail_count/2 + 1;
+                }
+                device_clear_state(BIT_FORECAST_OK);
             }
-            device_clear_state(BIT_UPDATE_BROADCAST_DATA|BIT_INIT_SNTP);
+            device_clear_state(BIT_UPDATE_FORECAST_DATA|BIT_INIT_SNTP);
         }
         device_clear_state(BIT_WAIT_PROCCESS);
     }
@@ -326,14 +310,14 @@ int tasks_init()
     if(xTaskCreate(
             service_task, 
             "service",
-            15000, 
+            20000, 
             NULL, 
             5,
             NULL) != pdTRUE
         || xTaskCreate(
             main_task, 
             "main",
-            15000, 
+            20000, 
             NULL, 
             5,
             NULL) != pdTRUE 
@@ -344,9 +328,7 @@ int tasks_init()
     return ESP_OK;   
 }
 
-
-
-static int get_timer_min(int pos)
+static int get_timer_val(int pos)
 {
     if(pos == TURN_LEFT || pos == TURN_RIGHT || pos == TURN_UPSIDE_DOWN){
         return pos*10;
@@ -354,77 +336,93 @@ static int get_timer_min(int pos)
     return 5;
 }
 
+static int timer_counter = 0;
+
+void time_periodic_task()
+{
+    timer_counter -= 1;
+    device_set_state(BIT_NEW_MIN);
+}
 
 static void timer_func(int cmd_id, int pos_data)
 {
-    static int min_counter = 0, min, init_min = 0;
+    static int init_val = 0;
+    static bool timer_run = false;
     float t;
-    bool pausa;
+    bool set_timer_state = timer_run;
 
-    if(pos_data == NO_DATA){
-        pausa = TURN_UP == mpu_get_rotate();
-    } else {
-        if(pos_data == TURN_NORMAL){
-            next_screen = SCREEN_MAIN;
-            return;
-        }
-
-        if(cmd_id == CMD_UPDATE_POS || cmd_id == CMD_INIT){
-            start_single_signale(10, 1000);
-            min_counter = get_timer_min(pos_data);
-        }
-        pausa = pos_data == TURN_UP;
-    }
-
-    if(cmd_id == CMD_INC){
-        init_min = min_counter = (init_min/5)*5 + 5;
+    if(cmd_id == CMD_INC) {
+        init_val = timer_counter = (init_val/5)*5 + 5;
+        set_timer_state = true;
     } else if(cmd_id == CMD_DEC){
-        if(init_min){
-            if(init_min <= 5){
-                init_min -= 1;
+        if(init_val){
+            if(init_val <= 5){
+                init_val -= 1;
             } else {
-                init_min = (init_min/5)*5 - 5;
+                init_val = (init_val/5)*5 - 5;
             }
         }
-        min_counter = init_min;
+        timer_counter = init_val;
+        set_timer_state = true;
+    } else if(pos_data == TURN_NORMAL){
+        next_screen = SCREEN_MAIN;
+        if(timer_run){
+            timer_run = false;
+            remove_task(time_periodic_task);
+        }
+        return;
     }
 
-    epaper_printf_centered(35, 34, COLORED, "%d:%0.2d", 
-                    service_data.cur_min/60, 
-                    service_data.cur_min%60);
-                    
+    if(pos_data == NO_DATA){
+        set_timer_state = mpu_get_rotate() != TURN_UP;
+    } else if(pos_data == TURN_UP){
+        set_timer_state = false;
+    } else if(cmd_id == CMD_UPDATE_POS || cmd_id == CMD_INIT){
+        start_single_signale(10, 1000);
+        timer_counter = get_timer_val(pos_data);
+        set_timer_state = true;
+    }
+    
+    if(timer_run != set_timer_state){
+        if(set_timer_state){
+            start_timer();
+            create_periodic_task(time_periodic_task, 60, FOREVER);
+        }else {
+            remove_task(time_periodic_task);
+        }
+        timer_run = set_timer_state;
+    }
+
+    epaper_printf_centered(35, 34, COLORED, snprintf_time("%H:%M"));
+
     if(AHT21_read_data(&t, NULL) == ESP_OK){
         epaper_printf_centered(175, 20, COLORED, "%.1fC*", t);
     }
     
-
-    if(service_data.cur_min != min){
-        min = service_data.cur_min;
-        if(min_counter){
-            if(!pausa){
-                min_counter -= 1;
-                if(min_counter == 0){
-                    epaper_refresh();
-                    start_alarm();
-                    vTaskDelay(2000/portTICK_PERIOD_MS);
-                    wait_moving(true, 5000);
-                    if(init_min){
-                        min_counter = init_min;
-                    } else {
-                        min_counter = get_timer_min(mpu_get_rotate());
-                    }
-                }
+    if(timer_run){
+        if(timer_counter <= 0){
+            epaper_refresh();
+            start_alarm();
+            vTaskDelay(2000/portTICK_PERIOD_MS);
+            if(init_val){
+                timer_counter = init_val;
+            } else {
+                device_wait_moving_end(5000);
+                timer_counter = get_timer_val(mpu_get_rotate());
             }
+        }
+        if(timer_counter <= 0){
+            timer_run = false;
+            remove_task(time_periodic_task);
         }
     }
 
-    if(min_counter){
-        
-        epaper_printf_centered(75, 64, COLORED, "%i", min_counter);
-        if(pausa){
-            epaper_print_centered_str(135, 20, COLORED, "Pausa");
-        } else {
+    if(timer_counter){
+        epaper_printf_centered(75, 64, COLORED, "%i", timer_counter);
+        if(timer_run){
             epaper_print_centered_str(135, 20, COLORED, "min");
+        } else {
+            epaper_print_centered_str(135, 20, COLORED, "Pausa");
         }
     } else {
         epaper_print_centered_str( 90, 48, COLORED, "Stop");
@@ -452,7 +450,6 @@ static void setting_func(int cmd_id, int pos_data)
         epaper_print_centered_str(60,16, COLORED, "for starting");
         epaper_print_centered_str(80,16, COLORED, "settings server");
     }
-
 }
 
 
@@ -462,7 +459,7 @@ static void main_func(int cmd_id, int pos_data)
     float t, hum;
     unsigned bits = device_get_state();
     if(pos_data == TURN_UP){
-        next_screen = SCREEN_BROADCAST_DETAIL;
+        next_screen = SCREEN_FORECAST_DETAIL;
         return;
     } 
     if(pos_data == TURN_LEFT || pos_data == TURN_RIGHT || pos_data == TURN_UPSIDE_DOWN){
@@ -471,8 +468,9 @@ static void main_func(int cmd_id, int pos_data)
     }
 
     if(cmd_id == CMD_DEC || cmd_id == CMD_INC){
-        device_set_state(BIT_UPDATE_BROADCAST_DATA);
+        device_set_state(BIT_UPDATE_FORECAST_DATA);
     }
+
     if(i>5){
         if(adc_reader_get_voltage() < 3.5f){
             epaper_printf(10, 10, 16, COLORED, "BAT!");
@@ -481,24 +479,27 @@ static void main_func(int cmd_id, int pos_data)
     } else {
         i += 1;
     }
+
     if(AHT21_read_data(&t, &hum) == ESP_OK){
         draw_horizontal_line(0, 200, 70, 2, COLORED);
         epaper_print_str(5, 40, 20, COLORED, "room");
         epaper_printf(90, 25, 24, COLORED, "%.1fC*", t);
         epaper_printf(90, 50, 24, COLORED, "%.1f%%", hum);
     }
-    if(bits & BIT_BROADCAST_OK){
+
+    if(bits & BIT_FORECAST_OK){
         epaper_printf(20, 75, 24, COLORED, "%.1fC* %.0f%%", 
                         service_data.temp_list[0], 
                         service_data.pop_list[0]);
         epaper_print_centered_str(100, 20, COLORED, 
                         service_data.desciption);
     } 
+
     if(bits & BIT_IS_TIME) {
-        epaper_printf(30, 125, 48, COLORED, snprintf_time("%H:%M"));
-        epaper_printf(50, 172, 24, COLORED, snprintf_time("%d %a"));
+        epaper_printf_centered(125, 48, COLORED, snprintf_time("%H:%M"));
+        epaper_printf_centered(172, 24, COLORED, snprintf_time("%d %a"));
     } else {
-        epaper_printf(30, 125, 48, COLORED, snprintf_time("--:--"));
+        epaper_printf_centered(125, 48, COLORED, snprintf_time("--:--"));
     }
 }
 
@@ -521,7 +522,7 @@ static void device_info_func(int cmd_id, int pos_data)
                         ? "ok"
                         : "nok");
     epaper_printf(5, 105, 20, COLORED, "Openweath.:%s", 
-                        bits&BIT_BROADCAST_OK
+                        bits&BIT_FORECAST_OK
                         ? "ok"
                         : "nok");
 }
@@ -538,18 +539,18 @@ static void weather_info_func(int cmd_id, int pos_data)
         return;
     }
     if(cmd_id == CMD_INC || cmd_id == CMD_DEC){
-        device_set_state(BIT_UPDATE_BROADCAST_DATA);
+        device_set_state(BIT_UPDATE_FORECAST_DATA);
     }
 
     epaper_print_centered_str(40, 20, COLORED, service_data.desciption);
     device_wait_bits(BIT_IS_TIME);
-    update_time_val();
-    unsigned h = service_data.cur_min / 60;
+    unsigned h = service_data.cur_sec / 3600;
     for(int i=0; i<BRODCAST_LIST_SIZE; ++i){
         if(h>23)h %= 24;
         epaper_printf(1, 70+i*25, 20, COLORED, "%2.2d: %.1fC*/%.0f%%", 
                             h, 
-                            service_data.temp_list[i]);
+                            service_data.temp_list[i],
+                            service_data.pop_list[i]);
         h += 3;
     }
 }

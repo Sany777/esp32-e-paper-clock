@@ -6,6 +6,8 @@
 #include "driver/gpio.h"
 #include "periodic_task.h"
 #include "device_macro.h"
+
+#include "freertos/FreeRTOS.h"
 #include "portmacro.h"
 // 34 - UP, 27 - left, 35 - right, 32 - , 33 -center,
 
@@ -21,7 +23,7 @@ static void IRAM_ATTR send_sig_update_pos()
 void IRAM_ATTR gpio_isr_handler(void* arg)
 {
     set_bit_from_isr(BIT_WAIT_MOVING);
-    periodic_task_isr_create(send_sig_update_pos, 300, 1);
+    create_periodic_isr_task(send_sig_update_pos, 300, 1);
 }
 
 void setup_gpio_interrupt()
@@ -66,9 +68,24 @@ int device_get_joystick_btn()
         if(gpio_get_level(joystic_pin[i])){
             start_single_signale(10, 1000);
             device_set_state(BIT_WAIT_BUT_INPUT);
-            periodic_task_isr_create(end_but_input, 4000, 1);
+            create_periodic_isr_task(end_but_input, 4000, 1);
             return i;
         }
     }
     return NO_DATA;
+}
+
+// wait moving and end 
+bool device_wait_moving_end(int timeout_ms)
+{
+    bool state = false;
+    do{
+        if(state != gpio_get_level(GPIO_WAKEUP_PIN)){
+            if(state)return true;
+            state = true;
+        }
+        vTaskDelay(100/portTICK_PERIOD_MS);
+        timeout_ms -= 100;
+    }while(timeout_ms);
+    return false;
 }

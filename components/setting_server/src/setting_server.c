@@ -537,7 +537,6 @@ int init_server(char *server_buf)
     };
     httpd_register_uri_handler(server, &set_loud_uri);
 
-    vTaskDelay(100/portTICK_PERIOD_MS);
     return ESP_OK;
 }
 

@@ -1,8 +1,6 @@
 #include "device_common.h"
 
 
-#include "clock_module.h"
-
 #include "stdlib.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
@@ -11,6 +9,7 @@
 #include "portmacro.h"
 #include "esp_sleep.h"
 
+#include "clock_module.h"
 #include "device_macro.h"
 #include "wifi_service.h"
 #include "device_memory.h"
@@ -23,9 +22,6 @@
 #include "periodic_task.h"
 #include "sound_generator.h"
 
-#include "freertos/FreeRTOS.h"
-#include "MPU6500.h"
-#include "epaper_adapter.h"
 
 #include "esp_log.h"
 
@@ -40,6 +36,16 @@ static const char *MAIN_DATA_NAME = "main_data";
 static const char *NOTIFY_DATA_NAME = "notify_data";
 
 static int read_data();
+
+static void update_time_handler()
+{
+    static int sec;
+    service_data.cur_sec = get_time_sec(get_time_tm());
+    if(service_data.cur_sec - sec <= 60){
+        sec = service_data.cur_sec;
+        device_set_state(BIT_NEW_MIN);
+    }
+}
 
 
 void device_set_offset(int time_offset)
@@ -212,16 +218,17 @@ static int read_data()
 }
 
 
-bool is_signale(int cur_min, int cur_day)
+bool is_signale(struct tm *tm_info)
 {
-    cur_day = (cur_day+1) % 7;
+    int cur_min = tm_info->tm_hour*60 + tm_info->tm_min;
+    int cur_day = (tm_info->tm_wday +1) % 7;
     const unsigned notif_num = main_data.schema[cur_day];
     unsigned *notif_data = main_data.notification;
     if( notif_num && notif_data
             && cur_min > FORBIDDED_NOTIF_HOUR 
-            && !(main_data.flags&BIT_SOUNDS_DISABLE) ){
+            && !(main_data.flags&BIT_NOTIF_DISABLE) ){
         for(int i=0; i<cur_day-1; ++i){
-            // set offset
+            // set data offset
             notif_data += main_data.schema[i];
         }
         for(int i=0; i<notif_num; ++i){
@@ -244,7 +251,6 @@ void device_common_init()
     device_set_pin(EP_ON_PIN, 0);
     device_set_pin(AHT21_EN_PIN, 0);
     vTaskDelay(pdMS_TO_TICKS(500));
-    device_timer_start();
     I2C_init();
     device_set_pin(EP_ON_PIN, 1);
     device_set_pin(AHT21_EN_PIN, 1);
@@ -256,6 +262,7 @@ void device_common_init()
     epaper_init();
     adc_reader_init();
     device_gpio_init();
+    create_periodic_task(update_time_handler, 1, FOREVER);
 }
 
 
