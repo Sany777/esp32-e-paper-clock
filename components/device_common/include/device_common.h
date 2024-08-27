@@ -40,7 +40,7 @@ enum Bits{
     BIT_WAIT_BUT_INPUT          = (1<<17),
     BIT_NEW_DATA                = (1<<18),
     BIT_NEW_MIN                 = (1<<19),
-
+    BIT_WAIT_SIGNALE            = (1<<20),
     STORED_FLAGS                = (BIT_NOTIF_DISABLE|BIT_OFFSET_ENABLE|BIT_STA_DISABLE),
 };
 
@@ -60,7 +60,8 @@ typedef struct {
 typedef struct {
     char desciption[DESCRIPTION_SIZE+1];
     int cur_sec;
-    float pop_list[BRODCAST_LIST_SIZE];
+    int update_data_time;
+    int pop_list[BRODCAST_LIST_SIZE];
     float temp_list[BRODCAST_LIST_SIZE];
 } service_data_t;
 

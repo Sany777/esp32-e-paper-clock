@@ -23,7 +23,7 @@ int create_periodic_isr_task(periodic_func_t func,
 int create_periodic_task(periodic_func_t func,
                             unsigned delay_sec, 
                             unsigned count);
-void start_timer();
+void restart_timer();
 long long get_timer_ms();
 void task_runner_deinit();
 

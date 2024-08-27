@@ -10,7 +10,6 @@
 #include "additional_functions.h"
 
 #define INTERVAL_10_HOUR   (1000*60*60*10)
-#define INTERVAL_1_MIN      (1000*60*1)
 
 
 
@@ -48,7 +47,7 @@ void set_offset(int offset_hour)
 
 static void set_time_cb(struct timeval *tv)
 {
-    unsigned bits = device_set_state(BIT_IS_TIME|BIT_SNTP_OK); 
+    unsigned bits = device_set_state(BIT_SNTP_OK); 
     if(bits & BIT_OFFSET_ENABLE){
         tv->tv_sec += 60 * 60 * device_get_offset();
         settimeofday(tv, NULL);
@@ -57,11 +56,7 @@ static void set_time_cb(struct timeval *tv)
         tzset();
         settimeofday(tv, NULL);
     }
-    // first call
-    if(esp_sntp_get_sync_interval() < INTERVAL_10_HOUR){
-        esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
-    }
-    device_set_state(BIT_NEW_DATA);
+    device_set_state(BIT_NEW_DATA|BIT_IS_TIME);
 }
 
 
@@ -76,7 +71,7 @@ void init_sntp()
         esp_sntp_setservername(0, "pool.ntp.org");
         esp_sntp_setservername(1, "time.windows.com");
         sntp_servermode_dhcp(0);
-        esp_sntp_set_sync_interval(INTERVAL_1_MIN);
+        esp_sntp_set_sync_interval(INTERVAL_10_HOUR);
         esp_sntp_init();
     }
 }

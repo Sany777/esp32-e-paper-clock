@@ -66,7 +66,7 @@ int device_get_joystick_btn()
 {
     for(int i=0; i<BUT_NUM; ++i){
         if(gpio_get_level(joystic_pin[i])){
-            start_single_signale(10, 1000);
+            start_single_signale(100, 2000);
             device_set_state(BIT_WAIT_BUT_INPUT);
             create_periodic_isr_task(end_but_input, 4000, 1);
             return i;
@@ -78,14 +78,14 @@ int device_get_joystick_btn()
 // wait moving and end 
 bool device_wait_moving_end(int timeout_ms)
 {
-    bool state = false;
+    bool pin_state = false;
     do{
-        if(state != gpio_get_level(GPIO_WAKEUP_PIN)){
-            if(state)return true;
-            state = true;
-        }
         vTaskDelay(100/portTICK_PERIOD_MS);
+        if(pin_state != gpio_get_level(GPIO_WAKEUP_PIN)){
+            if(pin_state)break;
+            pin_state = true;
+        }
         timeout_ms -= 100;
     }while(timeout_ms);
-    return false;
+    return pin_state;
 }

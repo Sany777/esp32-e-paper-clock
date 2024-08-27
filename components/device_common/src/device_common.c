@@ -42,7 +42,7 @@ static void update_time_handler()
 {
     static int sec;
     service_data.cur_sec = get_time_sec(get_time_tm());
-    if(service_data.cur_sec - sec <= 60){
+    if( (service_data.cur_sec - sec) >= 60){
         sec = service_data.cur_sec;
         device_set_state(BIT_NEW_MIN);
     }
@@ -244,16 +244,13 @@ bool is_signale(struct tm *tm_info)
 void device_common_init()
 {
     clock_event_group = xEventGroupCreate();
-    if(clock_event_group == NULL){
-        esp_restart();
-    }
     device_set_pin(EP_ON_PIN, 0);
     device_set_pin(AHT21_EN_PIN, 0);
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(pdMS_TO_TICKS(750));
     I2C_init();
     device_set_pin(EP_ON_PIN, 1);
     device_set_pin(AHT21_EN_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(500));
+    vTaskDelay(pdMS_TO_TICKS(750));
     read_data();
     wifi_init();
     mpu_init();

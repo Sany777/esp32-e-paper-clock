@@ -46,6 +46,7 @@ static void start_pwm(unsigned duty);
 
 static void IRAM_ATTR continue_signale()
 {
+    device_set_state(BIT_WAIT_SIGNALE);
     ledc_timer_resume(ledc_timer.speed_mode, ledc_timer.timer_num);
     create_periodic_isr_task(signale_stop, _delay/2, 1);
 }
@@ -85,6 +86,7 @@ void start_signale_series(unsigned delay, unsigned count, unsigned freq)
 static IRAM_ATTR void signale_stop()
 {
     ledc_timer_pause(ledc_timer.speed_mode, ledc_timer.timer_num);
+    device_clear_state(BIT_WAIT_SIGNALE);
 }
 
 static void init_pwm(unsigned freq_hz)
@@ -97,6 +99,7 @@ static void init_pwm(unsigned freq_hz)
 
 static void start_pwm(unsigned duty)
 {
+    device_set_state(BIT_WAIT_SIGNALE);
     if(duty > 99 || duty == 0) duty = DEFAULT_DUTY;
     ledc_set_duty(ledc_channel.speed_mode, ledc_channel.channel, duty);
     ledc_update_duty(ledc_channel.speed_mode, ledc_channel.channel);

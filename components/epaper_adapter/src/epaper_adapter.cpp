@@ -17,56 +17,67 @@ static Paint *paint;
 static Epaper epd;
 
 static unsigned char screen[SCREEN_WIDTH * SCREEN_HEIGHT/8];
+
 static char text_buf[150];
-static int rotate;
+static const int USE_SCREEN_WIDTH = SCREEN_WIDTH-10;
+static sFONT *font_list[] = {&Font12, &Font16, &Font20, &Font24, &Font34, &Font48, &Font64};
 
 
-
-
-static sFONT* epaper_get_font(int font_num);
 
 void epaper_init()
 {
     if(!paint){
-        rotate = ROTATE_0;
         paint = new Paint(screen, epd.width, epd.height);
     }
     epd.LDirInit();
 }
 
-static sFONT* epaper_get_font(int font_num)
+
+static sFONT* get_font(size_t font_id)
 {
-    switch(font_num){
-        case 48: return &Font48; 
-        case 34: return &Font34; 
-        case 12: return &Font12;
-        case 16: return &Font16;
-        case 20: return &Font20;
-        case 24: return &Font24;
-        case 64: return &Font64;
-        default: break;
+    if(font_id >= FONT_SIZE_MAX){
+        return NULL;
     }
-    return &Font20;
+    return font_list[font_id];
 }
 
-void epaper_print_str(int hor, int ver, int font_size, color_t colored, const char *str)
-{ 
-    sFONT * font = epaper_get_font(font_size);
-    paint->DrawStringAt(hor, ver, str, font, colored);
-}
-
-void epaper_print_centered_str(int ver, int font_size, color_t colored, const char *str)
+void epaper_print_str(int hor, int ver, font_size_t font_size, color_t colored, const char *str)
 {
-    int h = 5;
-    sFONT * font = epaper_get_font(font_size);
-    int str_width = strlen(str) * font->Width;
-    if(str_width < 190){
-        h += (190 - str_width) / 2;  
+    sFONT * font = get_font(font_size);
+    if(font){
+        paint->DrawStringAt(hor, ver, str, font, colored);
     }
-    epaper_print_str(h, ver, font_size, colored, str);  
 }
 
-void epaper_printf_centered(int ver, int font_size, color_t colored, const char *format, ...)
+static sFONT* get_fit_font(font_size_t font_id, size_t char_num)
+{
+    size_t ind = font_id;
+    sFONT * font = NULL;
+    size_t str_width = 0;
+    do{
+        if(ind >= FONT_SIZE_MAX)break;
+        font = get_font(ind);
+        ind -= 1;
+        str_width = font->Width * char_num;
+    }while(str_width>USE_SCREEN_WIDTH);
+    return font;
+}
+
+void epaper_print_centered_str(int ver, font_size_t font_size, color_t colored, const char *str)
+{
+    int h = 5, str_width;
+    const size_t str_len = strlen(str);
+    sFONT * font = get_fit_font(font_size, str_len);
+    if(font){
+        str_width = font->Width * str_len;
+        if(str_width < USE_SCREEN_WIDTH){
+            h += (USE_SCREEN_WIDTH - str_width) / 2;  
+        }
+        paint->DrawStringAt(h, ver, str, font, colored);  
+    }
+}
+
+void epaper_printf_centered(int ver, font_size_t font_size, color_t colored, const char *format, ...)
 {
     va_list args;
     va_start (args, format);
@@ -75,7 +86,7 @@ void epaper_printf_centered(int ver, int font_size, color_t colored, const char 
     epaper_print_centered_str(ver, font_size, colored, text_buf);
 }
 
-void epaper_printf(int hor, int ver, int font_size, color_t colored, const char *format, ...)
+void epaper_printf(int hor, int ver, font_size_t font_size, color_t colored, const char *format, ...)
 {
     va_list args;
     va_start (args, format);
@@ -88,8 +99,6 @@ void epaper_refresh()
 {
     epd.DisplayFrame();
 }
-
-
 
 void epaper_display_all()
 {

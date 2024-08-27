@@ -36,7 +36,6 @@ static wifi_config_t wifi_ap_config = {
         .ap.authmode = WIFI_AUTH_WPA_WPA2_PSK,
         .ap.channel = 1,
         .ap.pmf_cfg.required = false
-    
 };
 
 
@@ -46,6 +45,7 @@ static void sta_handler(void* arg, esp_event_base_t event_base, int32_t event_id
     static int retry_num;
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         retry_num = 0;
+        device_clear_state(BIT_IS_STA_CONNECTION);
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if(retry_num < 5){
@@ -58,9 +58,7 @@ static void sta_handler(void* arg, esp_event_base_t event_base, int32_t event_id
             } else {
                 device_clear_state(BIT_ERR_SSID_NO_FOUND);
             }
-        } else {
-            device_clear_state(BIT_IS_STA_CONNECTION);
-        }
+        } 
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         retry_num = 0;
         device_set_state(BIT_IS_STA_CONNECTION);
@@ -109,7 +107,7 @@ int connect_sta(const char *ssid, const char *pwd)
     wifi_sta_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
     wifi_mode = WIFI_MODE_STA;
 
-    if (wifi_mode != WIFI_MODE_STA){
+    if (wifi_mode == WIFI_MODE_AP){
         wifi_stop(); 
     }
 
@@ -133,9 +131,9 @@ int connect_sta(const char *ssid, const char *pwd)
 
     CHECK_AND_RET_ERR(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_sta_config));
     CHECK_AND_RET_ERR(esp_wifi_start());
-    unsigned bits = device_wait_bits_untile(BIT_IS_STA_CONNECTION, 10000/portTICK_PERIOD_MS);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    unsigned bits = device_wait_bits(BIT_IS_STA_CONNECTION);
     if(bits&BIT_IS_STA_CONNECTION){
-        vTaskDelay(500/portTICK_PERIOD_MS);
         return ESP_OK;
     }
     ESP_LOGE("", "err timeout sta");
@@ -145,7 +143,7 @@ int connect_sta(const char *ssid, const char *pwd)
 
 int start_ap()
 {
-    if (wifi_mode != WIFI_MODE_AP) {
+    if (wifi_mode != WIFI_MODE_AP && wifi_mode != WIFI_MODE_NULL) {
         wifi_stop(); 
     }
 
