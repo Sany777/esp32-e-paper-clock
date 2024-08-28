@@ -55,7 +55,7 @@ int AHT21_read_data(float *temperature, float *humidity)
     CHECK_AND_RET_ERR(I2C_write_bytes(AHT21_ADDR, mpu_measure_data, sizeof(mpu_measure_data)));
     do {
         vTaskDelay(pdMS_TO_TICKS(AHT21_CHECK_BUSY_DELAY_MS));
-        CHECK_AND_RET_ERR(I2C_read_response(AHT21_ADDR, &status, sizeof(status)));
+        CHECK_AND_RET_ERR(I2C_read_bytes(AHT21_ADDR, &status, sizeof(status)));
         wait_time += AHT21_CHECK_BUSY_DELAY_MS;
         if (wait_time >= AHT21_MAX_BUSY_WAIT_MS) {
             ESP_LOGE(TAG, "Sensor is busy for too long");

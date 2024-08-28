@@ -97,7 +97,7 @@ static void main_task(void *pv)
     int timeout = TIMEOUT_6_SEC;
     device_set_state(BIT_UPDATE_FORECAST_DATA);
     vTaskDelay(100/portTICK_PERIOD_MS);
-    int upd_count = 0;
+
     for(;;){
 
         but_input = exit = false;
@@ -161,11 +161,9 @@ static void main_task(void *pv)
                 epaper_clear(UNCOLORED); 
                 func_list[screen](cmd, pos_data);
                 bits = device_get_state();
-                if(exit || upd_count > 3){
+                if(exit){
                     epaper_display_all();
-                    upd_count = 0;
                 } else {
-                    upd_count += 1;
                     epaper_display_part();
                 }
                 vTaskDelay(250/portTICK_PERIOD_MS);
@@ -400,20 +398,18 @@ static void timer_func(int cmd_id, int pos_data)
     
     if(timer_run){
         if(timer_counter <= 0){
-            epaper_refresh();
+            remove_task(time_periodic_task);
             start_alarm();
             vTaskDelay(2000/portTICK_PERIOD_MS);
             device_wait_moving_end(4000);
             real_pos = mpu_get_rotate();
-            if(real_pos == TURN_NORMAL){
+            if(real_pos == TURN_NORMAL || real_pos == TURN_UP){
                 next_screen = SCREEN_MAIN;
                 timer_run = false;
                 return;
             }
-            if(real_pos == TURN_UP){
-                timer_run = false;
-                remove_task(time_periodic_task);
-            }
+
+            create_periodic_task(time_periodic_task, 60, FOREVER);
             if(init_val){
                 timer_counter = init_val;
             } else {
