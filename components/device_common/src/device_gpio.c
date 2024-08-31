@@ -2,13 +2,12 @@
 
 
 #include "sound_generator.h"
-#include "device_common.h"
-#include "driver/gpio.h"
 #include "periodic_task.h"
 #include "device_macro.h"
-
+#include "driver/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "portmacro.h"
+#include "device_common.h"
 // 34 - UP, 27 - left, 35 - right, 32 - , 33 -center,
 
 static const int joystic_pin[] = {GPIO_NUM_35,GPIO_NUM_33,GPIO_NUM_27};
@@ -17,12 +16,12 @@ static const int BUT_NUM = sizeof(joystic_pin)/sizeof(joystic_pin[0]);
 
 static void IRAM_ATTR send_sig_update_pos()
 {
-    clear_bit_from_isr(BIT_WAIT_MOVING);
+    device_clear_state_isr(BIT_WAIT_MOVING);
 }
 
 void IRAM_ATTR gpio_isr_handler(void* arg)
 {
-    set_bit_from_isr(BIT_WAIT_MOVING);
+    device_set_state_isr(BIT_WAIT_MOVING);
     create_periodic_isr_task(send_sig_update_pos, 300, 1);
 }
 
@@ -31,14 +30,14 @@ void setup_gpio_interrupt()
     gpio_config_t io_conf = {
         .intr_type = GPIO_INTR_POSEDGE, 
         .mode = GPIO_MODE_INPUT,
-        .pin_bit_mask = (1ULL << GPIO_WAKEUP_PIN),
+        .pin_bit_mask = (1ULL << PIN_WAKEUP),
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .pull_up_en = GPIO_PULLUP_DISABLE
     };
     
     gpio_config(&io_conf);
     gpio_install_isr_service(0);
-    gpio_isr_handler_add(GPIO_WAKEUP_PIN, gpio_isr_handler, NULL);
+    gpio_isr_handler_add(PIN_WAKEUP, gpio_isr_handler, NULL);
 }
 
 int IRAM_ATTR device_set_pin(int pin, unsigned state)
@@ -59,7 +58,7 @@ void device_gpio_init()
 
 static void end_but_input()
 {
-    clear_bit_from_isr(BIT_WAIT_BUT_INPUT);
+    device_clear_state_isr(BIT_WAIT_BUT_INPUT);
 }
 
 int device_get_joystick_btn()
@@ -81,7 +80,7 @@ bool device_wait_moving_end(int timeout_ms)
     bool pin_state = false;
     do{
         vTaskDelay(100/portTICK_PERIOD_MS);
-        if(pin_state != gpio_get_level(GPIO_WAKEUP_PIN)){
+        if(pin_state != gpio_get_level(PIN_WAKEUP)){
             if(pin_state)break;
             pin_state = true;
         }

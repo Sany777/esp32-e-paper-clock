@@ -134,13 +134,13 @@ int mpu_measure()
 
 int mpu_on()
 {
-    device_set_pin(MPU6500_EN_PIN, 1);
+    device_set_pin(PIN_MPU6500_EN, 1);
     vTaskDelay(pdMS_TO_TICKS(300));
     return mpu_init();
 }
 
 void mpu_off()
 {
-    device_set_pin(MPU6500_EN_PIN, 0);
+    device_set_pin(PIN_MPU6500_EN, 0);
     is_init = false;
 }

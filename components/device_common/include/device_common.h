@@ -15,7 +15,7 @@ enum BasicConst{
     API_LEN                 = 32,
     FORBIDDED_NOTIF_HOUR    = 6*60,
     DESCRIPTION_SIZE        = 20,
-    BRODCAST_LIST_SIZE      = 5,
+    FORECAST_LIST_SIZE      = 5,
     NET_BUF_LEN             = 5000,
 };
 
@@ -58,27 +58,25 @@ typedef struct {
 
 
 typedef struct {
-    char desciption[DESCRIPTION_SIZE+1];
+    char desciption[FORECAST_LIST_SIZE][DESCRIPTION_SIZE+1];
     int cur_sec;
     int update_data_time;
-    int pop_list[BRODCAST_LIST_SIZE];
-    float temp_list[BRODCAST_LIST_SIZE];
+    int pop_list[FORECAST_LIST_SIZE];
+    float temp_list[FORECAST_LIST_SIZE];
 } service_data_t;
 
 void device_gpio_init();
 int device_get_joystick_btn();
 int device_set_pin(int pin, unsigned state);
+bool device_wait_moving_end(int timeout_ms);
 
-void clear_bit_from_isr(unsigned bits);
-void set_bit_from_isr(unsigned bits);
-
-#define GPIO_WAKEUP_PIN     (34)
-#define AHT21_EN_PIN        (23)
-#define SIG_OUT_PIN         (18) 
-#define MPU6500_EN_PIN      (19)
+#define PIN_WAKEUP          (34)
+#define PIN_AHT21_EN        (23)
+#define PIN_SIG_OUT         (18) 
+#define PIN_MPU6500_EN      (19)
+#define PIN_EPAPER_EN       (22)
 #define I2C_MASTER_SCL_IO   (26)       
 #define I2C_MASTER_SDA_IO   (25)        
-#define EP_ON_PIN           (22)
 
 enum CMD{
     BUT_RIGHT,
@@ -103,8 +101,6 @@ void device_set_city(const char *str);
 void device_set_key(const char *str);
 int device_commit_changes();
 unsigned device_get_state();
-unsigned device_set_state(unsigned bits);
-unsigned device_clear_state(unsigned bits);
 unsigned device_wait_bits_untile(unsigned bits, unsigned time_ms);
 void device_set_notify_data(unsigned *schema, unsigned *notif_data);
 bool is_signale(struct tm *tm_info);
@@ -117,11 +113,13 @@ char *device_get_city_name();
 void device_set_offset(int time_offset);
 void device_set_loud(int loud);
 unsigned device_get_loud();
-bool device_wait_moving_end(int timeout_ms);
+unsigned device_clear_state(unsigned bits);
+void device_set_state_isr(unsigned bits);
+void device_clear_state_isr(unsigned bits);
+unsigned device_set_state(unsigned bits);
 unsigned get_notif_num(unsigned *schema);
-void device_common_init();
+void device_init();
 
-int device_get_time();
 
 #define device_wait_bits(bits) \
     device_wait_bits_untile(bits, 10000/portTICK_PERIOD_MS)

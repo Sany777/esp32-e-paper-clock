@@ -83,8 +83,6 @@ enum {
 static int next_screen;
 
 
-
-
 static void main_task(void *pv)
 {
     unsigned bits;
@@ -96,10 +94,16 @@ static void main_task(void *pv)
     bool but_input, exit;
     int timeout = TIMEOUT_6_SEC;
     device_set_state(BIT_UPDATE_FORECAST_DATA);
-    vTaskDelay(100/portTICK_PERIOD_MS);
+    device_set_pin(PIN_EPAPER_EN, 1);
+    device_set_pin(PIN_AHT21_EN, 1);
+    vTaskDelay(pdMS_TO_TICKS(750));
+    mpu_init();
+    AHT21_init();
+    epaper_init();
 
     for(;;){
 
+        vTaskDelay(100/portTICK_PERIOD_MS);
         but_input = exit = false;
         restart_timer();
         do{
@@ -128,7 +132,6 @@ static void main_task(void *pv)
             if(but_input){
                 pos_data = NO_DATA;
             }
-
 
             if(screen != next_screen) {
                 if(next_screen >= SCREEN_LIST_SIZE){
@@ -166,7 +169,6 @@ static void main_task(void *pv)
                 } else {
                     epaper_display_part();
                 }
-                vTaskDelay(250/portTICK_PERIOD_MS);
                 epaper_wait();
             }
 
@@ -183,15 +185,15 @@ static void main_task(void *pv)
             } else {
                 sleep_time_ms = ONE_MINUTE - working_time%ONE_MINUTE;
             }
-            device_set_pin(AHT21_EN_PIN, 0);
-            device_set_pin(EP_ON_PIN, 0);
+            device_set_pin(PIN_AHT21_EN, 0);
+            device_set_pin(PIN_EPAPER_EN, 0);
             esp_sleep_enable_timer_wakeup(sleep_time_ms * 1000);
-            esp_sleep_enable_ext0_wakeup((gpio_num_t)GPIO_WAKEUP_PIN, 1);
+            esp_sleep_enable_ext0_wakeup((gpio_num_t)PIN_WAKEUP, 1);
             esp_light_sleep_start();
-            device_set_pin(EP_ON_PIN, 1);
-            device_set_pin(AHT21_EN_PIN, 1);
-            vTaskDelay(pdMS_TO_TICKS(200));
-            if(device_wait_moving_end(750)){
+            device_set_pin(PIN_EPAPER_EN, 1);
+            device_set_pin(PIN_AHT21_EN, 1);
+            vTaskDelay(pdMS_TO_TICKS(100));
+            if(device_wait_moving_end(500)){
                 timeout = TIMEOUT_6_SEC;
             } else {
                 timeout = 1;
@@ -325,12 +327,15 @@ static int get_timer_val(int pos)
     return 5;
 }
 
-
 static int timer_counter = 0;
 
-void time_periodic_task()
+void timer_counter_handler()
 {
-    timer_counter -= 1;
+    if(timer_counter > 0){
+        timer_counter -= 1;
+    } else {
+        remove_task(timer_counter_handler);
+    }
     device_set_state(BIT_NEW_MIN);
 }
 
@@ -359,7 +364,7 @@ static void timer_func(int cmd_id, int pos_data)
         next_screen = SCREEN_MAIN;
         if(timer_run){
             timer_run = false;
-            remove_task(time_periodic_task);
+            remove_task(timer_counter_handler);
         }
         return;
     }
@@ -384,9 +389,9 @@ static void timer_func(int cmd_id, int pos_data)
     if(timer_run != set_timer_state){
         if(set_timer_state){
             restart_timer();
-            create_periodic_task(time_periodic_task, 60, FOREVER);
+            create_periodic_task(timer_counter_handler, 60, FOREVER);
         }else{
-            remove_task(time_periodic_task);
+            remove_task(timer_counter_handler);
         }
         timer_run = set_timer_state;
     }
@@ -398,7 +403,7 @@ static void timer_func(int cmd_id, int pos_data)
     
     if(timer_run){
         if(timer_counter <= 0){
-            remove_task(time_periodic_task);
+            remove_task(timer_counter_handler);
             start_alarm();
             vTaskDelay(2000/portTICK_PERIOD_MS);
             device_wait_moving_end(4000);
@@ -409,7 +414,7 @@ static void timer_func(int cmd_id, int pos_data)
                 return;
             }
 
-            create_periodic_task(time_periodic_task, 60, FOREVER);
+            create_periodic_task(timer_counter_handler, 60, FOREVER);
             if(init_val){
                 timer_counter = init_val;
             } else {
@@ -454,11 +459,23 @@ static void setting_func(int cmd_id, int pos_data)
     }
 }
 
+static int get_actual_forecast_data_index(const int cur_time_sec)
+{
+    const int cur_hour = cur_time_sec/3600;
+    if(service_data.update_data_time == NO_DATA 
+                || cur_hour - service_data.update_data_time > FORECAST_LIST_SIZE*3){
+            return NO_DATA;
+    }
+    return (cur_hour - service_data.update_data_time) / 3;
+
+}
+
 
 static void main_func(int cmd_id, int pos_data)
 {
     float t, hum;
     unsigned bits = device_get_state();
+    const int data_indx = get_actual_forecast_data_index(service_data.cur_sec);
     if(pos_data == TURN_UP){
         next_screen = SCREEN_FORECAST_DETAIL;
         return;
@@ -482,12 +499,10 @@ static void main_func(int cmd_id, int pos_data)
         epaper_printf(90, 25, FONT_SIZE_24, COLORED, "%.1fC*", t);
         epaper_printf(90, 50, FONT_SIZE_24, COLORED, "%.1f%%", hum);
     }
-    if(bits & BIT_FORECAST_OK){
-        epaper_printf_centered(75, FONT_SIZE_24, COLORED, "%.1fC* R:%d%%", 
-                        service_data.temp_list[0], 
-                        (service_data.pop_list[0] + service_data.pop_list[1])/2);
+    if(data_indx != NO_DATA){
+        epaper_printf_centered(75, FONT_SIZE_24, COLORED, "%.1fC*", service_data.temp_list[data_indx]);
         epaper_print_centered_str(100, FONT_SIZE_34, COLORED, 
-                        service_data.desciption);
+                        service_data.desciption[data_indx]);
     }
     if(bits & BIT_IS_TIME) {
         epaper_printf_centered(125, FONT_SIZE_48, COLORED, snprintf_time("%H:%M"));
@@ -529,6 +544,7 @@ static void device_info_func(int cmd_id, int pos_data)
 static void weather_info_func(int cmd_id, int pos_data)
 {
     int dt = service_data.update_data_time;
+    const int data_indx = get_actual_forecast_data_index(service_data.cur_sec);
     if(pos_data == TURN_NORMAL){
         next_screen = SCREEN_MAIN;
         return;
@@ -540,14 +556,14 @@ static void weather_info_func(int cmd_id, int pos_data)
     if(cmd_id == CMD_INC || cmd_id == CMD_DEC){
         device_set_state(BIT_UPDATE_FORECAST_DATA);
     }
-    if(device_get_state()&BIT_FORECAST_OK ){
-        epaper_print_centered_str(15, FONT_SIZE_20, COLORED, service_data.desciption);
+    if(data_indx != NO_DATA){
+        epaper_print_centered_str(15, FONT_SIZE_20, COLORED, service_data.desciption[data_indx]);
     } else {
-        epaper_printf_centered(15, FONT_SIZE_20, COLORED, "last update %d:00", dt);
+        epaper_printf_centered(15, FONT_SIZE_20, COLORED, "Update time %d:00", dt);
     }
     draw_rect(0,44,200, 61, COLORED, true);
     epaper_print_str(10, 47, FONT_SIZE_12, UNCOLORED, "hour    temp       rain");
-    for(int i=0; i<BRODCAST_LIST_SIZE; ++i){
+    for(int i=0; i<FORECAST_LIST_SIZE; ++i){
         if(dt>23)dt %= 24;
         epaper_printf(6, 70+i*25, FONT_SIZE_20, COLORED, "%c%c|%.1fC*|%d%%", 
                             dt>10 ? (dt/10)+'0':' ', 

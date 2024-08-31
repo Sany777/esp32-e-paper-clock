@@ -7,28 +7,20 @@
 #include "semaphore.h"
 #include "string.h"
 #include "portmacro.h"
-#include "esp_sleep.h"
-
 #include "clock_module.h"
 #include "device_macro.h"
 #include "wifi_service.h"
 #include "device_memory.h"
-
 #include "i2c_adapter.h"
-#include "epaper_adapter.h"
 #include "adc_reader.h"
-#include "AHT21.h"
-#include "MPU6500.h"
 #include "periodic_task.h"
 #include "sound_generator.h"
-
-
 #include "esp_log.h"
 
 
 static bool changes_main_data, changes_notify_data;
-static settings_data_t main_data;
-service_data_t service_data;
+static settings_data_t main_data = {0};
+service_data_t service_data = {0};
 char network_buf[NET_BUF_LEN];
 
 static EventGroupHandle_t clock_event_group;
@@ -40,7 +32,7 @@ static int read_data();
 
 static void update_time_handler()
 {
-    static int sec;
+    static int sec = 0;
     service_data.cur_sec = get_time_sec(get_time_tm());
     if( (service_data.cur_sec - sec) >= 60){
         sec = service_data.cur_sec;
@@ -50,9 +42,7 @@ static void update_time_handler()
 
 void device_set_offset(int time_offset)
 {
-    if(main_data.flags & BIT_OFFSET_ENABLE){
-        set_offset(time_offset - main_data.time_offset);
-    }
+    set_offset(time_offset - main_data.time_offset);
     main_data.time_offset = time_offset;
     changes_main_data = true;
 }
@@ -205,6 +195,7 @@ int device_get_offset()
 
 static int read_data()
 {
+    service_data.update_data_time = NO_DATA;
     CHECK_AND_RET_ERR(read_flash(MAIN_DATA_NAME, (unsigned char *)&main_data, sizeof(main_data)));
     device_set_state(main_data.flags&STORED_FLAGS);
     set_loud(main_data.loud);
@@ -219,13 +210,13 @@ static int read_data()
 
 bool is_signale(struct tm *tm_info)
 {
+    if(tm_info->tm_wday == 0) return false;
     int cur_min = tm_info->tm_hour*60 + tm_info->tm_min;
-    int cur_day = (tm_info->tm_wday +1) % 7;
+    int cur_day = tm_info->tm_wday - 1;
     const unsigned notif_num = main_data.schema[cur_day];
     unsigned *notif_data = main_data.notification;
     if( notif_num && notif_data
-            && cur_min > FORBIDDED_NOTIF_HOUR 
-            && !(main_data.flags&BIT_NOTIF_DISABLE) ){
+            && cur_min > FORBIDDED_NOTIF_HOUR){
         for(int i=0; i<cur_day-1; ++i){
             // set data offset
             notif_data += main_data.schema[i];
@@ -241,36 +232,27 @@ bool is_signale(struct tm *tm_info)
 
 
 
-void device_common_init()
+void device_init()
 {
     clock_event_group = xEventGroupCreate();
-    device_set_pin(EP_ON_PIN, 0);
-    device_set_pin(AHT21_EN_PIN, 0);
-    vTaskDelay(pdMS_TO_TICKS(750));
-    I2C_init();
-    device_set_pin(EP_ON_PIN, 1);
-    device_set_pin(AHT21_EN_PIN, 1);
-    vTaskDelay(pdMS_TO_TICKS(750));
-    read_data();
-    wifi_init();
-    mpu_init();
-    AHT21_init();
-    epaper_init();
     adc_reader_init();
     device_gpio_init();
+    read_data();
+    I2C_init();
+    wifi_init();
     create_periodic_task(update_time_handler, 1, FOREVER);
 }
 
 
 
-void  set_bit_from_isr(unsigned bits)
+void device_set_state_isr(unsigned bits)
 {
     BaseType_t pxHigherPriorityTaskWoken;
     xEventGroupSetBitsFromISR(clock_event_group, (EventBits_t)bits, &pxHigherPriorityTaskWoken);
     portYIELD_FROM_ISR( pxHigherPriorityTaskWoken );
 }
 
-void  clear_bit_from_isr(unsigned bits)
+void  device_clear_state_isr(unsigned bits)
 {
     xEventGroupClearBitsFromISR(clock_event_group, (EventBits_t)bits);
 }
